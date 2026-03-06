@@ -334,17 +334,34 @@ function updateChips(detections) {
 // MODEL LOADING
 // ─────────────────────────────────────────────────────────────
 async function loadModel() {
-  if (typeof tflite === 'undefined') { console.warn('TFLite runtime not available'); return null; }
+  if (typeof tflite === 'undefined') {
+    setProgress(100, 'ERROR', 'TFLite package not loaded — check CDN');
+    console.error('tflite is undefined');
+    return null;
+  }
+  try {
+    setProgress(15, 'Checking model URL…', 'Testing connection to model file');
+    const probe = await fetch(MODEL_URL, { method: 'HEAD', mode: 'cors' });
+    if (!probe.ok) {
+      setProgress(100, 'ERROR', `Model URL returned ${probe.status}`);
+      return null;
+    }
+  } catch(e) {
+    setProgress(100, 'CORS ERROR', 'Cannot reach model: ' + e.message);
+    console.error('Fetch probe failed:', e);
+    return null;
+  }
   try {
     setProgress(20, 'Fetching model…', 'Downloading from GitHub Releases (112MB)');
     const m = await tflite.loadTFLiteModel(MODEL_URL);
     setProgress(80, 'Warming up…', 'Running warm-up pass');
     const dummy = tf.zeros([1, INPUT_SIZE, INPUT_SIZE, 3]);
     m.predict(dummy); dummy.dispose();
-    setProgress(100, 'Ready ✓', 'YOLOv8 tooth detection loaded on-device');
+    setProgress(100, 'Ready ✓', 'YOLOv8 loaded on-device');
     return m;
   } catch(e) {
-    console.warn('Model load failed:', e.message);
+    setProgress(100, 'LOAD ERROR', 'Failed: ' + e.message);
+    console.error('Model load failed:', e);
     return null;
   }
 }

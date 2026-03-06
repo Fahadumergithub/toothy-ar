@@ -251,7 +251,10 @@
 
 <div id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.17.0/tf.min.js"></script>
+<!-- TensorFlow.js core -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<!-- TFLite runtime (WASM backend for running .tflite models in browser) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/dist/tf-tflite.min.js"></script>
 <script>
 // ─────────────────────────────────────────────────────────────
 // CONFIG
@@ -331,10 +334,10 @@ function updateChips(detections) {
 // MODEL LOADING
 // ─────────────────────────────────────────────────────────────
 async function loadModel() {
-  if (!tf.lite) { console.warn('TFLite not available'); return null; }
+  if (typeof tflite === 'undefined') { console.warn('TFLite runtime not available'); return null; }
   try {
     setProgress(20, 'Fetching model…', 'Downloading from GitHub Releases (112MB)');
-    const m = await tf.lite.loadTFLiteModel(MODEL_URL);
+    const m = await tflite.loadTFLiteModel(MODEL_URL);
     setProgress(80, 'Warming up…', 'Running warm-up pass');
     const dummy = tf.zeros([1, INPUT_SIZE, INPUT_SIZE, 3]);
     m.predict(dummy); dummy.dispose();

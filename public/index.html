@@ -526,8 +526,22 @@ async function runLoop() {
       const inp=tf.tidy(()=>tf.image.resizeBilinear(tf.browser.fromPixels(videoEl),[INPUT_SIZE,INPUT_SIZE]).div(255.0).expandDims(0));
       const out=model.predict(inp);
       inferenceMs=performance.now()-t0;
-      dets=parseYOLOv8(out,W,H);
-      inp.dispose(); out.dispose();
+
+      // DEBUG — log every 60 frames
+      if (frameCount % 60 === 0) {
+        const shape = Array.isArray(out) ? out[0].shape : out.shape;
+        const data  = Array.isArray(out) ? out[0].dataSync() : out.dataSync();
+        const maxVal = Math.max(...Array.from(data).slice(0, 10000));
+        const minVal = Math.min(...Array.from(data).slice(0, 10000));
+        console.log('Output shape:', shape);
+        console.log('Output max (first 10k):', maxVal.toFixed(4));
+        console.log('Output min (first 10k):', minVal.toFixed(4));
+        console.log('Conf threshold:', confidenceThreshold);
+      }
+
+      dets=parseYOLOv8(Array.isArray(out) ? out[0] : out, W, H);
+      inp.dispose();
+      if (Array.isArray(out)) out.forEach(t=>t.dispose()); else out.dispose();
     } catch(e) { console.error('Inference error:',e); }
   } else if (simMode) {
     dets=getSimDetections(W,H);

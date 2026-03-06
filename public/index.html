@@ -251,10 +251,10 @@
 
 <div id="toast"></div>
 
-<!-- TF.js full bundle -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"></script>
-<!-- TFLite WASM runtime -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite/dist/tf-tflite.min.js"></script>
+<!-- TF.js core (no version pin) -->
+<!-- TF.js + TFLite from unpkg (most reliable CDN) -->
+<script src="https://unpkg.com/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+<script src="https://unpkg.com/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/tf-tflite.min.js"></script>
 <script>
 // ─────────────────────────────────────────────────────────────
 // CONFIG
@@ -572,7 +572,7 @@ async function startAR() {
   buildDetectionGrid();
   setProgress(5,'Loading TF.js…','Initialising TensorFlow.js');
   await tf.ready();
-  setProgress(15,'TF.js ready','TensorFlow.js '+tf.version.tfjs+' loaded');
+  setProgress(15,'TF.js ready','TensorFlow.js loaded');
   model=await loadModel();
   if (!model) setProgress(100,'Ready (sim)','Model unavailable — simulation mode active');
   showStartButton();

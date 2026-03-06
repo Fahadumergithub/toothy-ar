@@ -252,14 +252,23 @@
 <div id="toast"></div>
 
 <!-- TF.js core (no version pin) -->
-<!-- TF.js + TFLite from unpkg (most reliable CDN) -->
-<script src="https://unpkg.com/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-<script src="https://unpkg.com/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/tf-tflite.min.js"></script>
+<!-- TF.js core -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+<!-- CPU backend -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu"></script>
+<!-- TFLite alpha.8 — confirmed working version -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.8/dist/tf-tflite.min.js"></script>
+<script>
+// Set WASM path so tflite can find its worker files from CDN
+if (typeof tflite !== 'undefined') {
+  tflite.setWasmPath('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.8/dist/');
+}
+</script>
 <script>
 // ─────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────
-const MODEL_URL    = 'https://github.com/Fahadumergithub/toothy-ar/releases/download/v1.0/best_float32.tflite';
+const MODEL_URL    = 'https://huggingface.co/fahadumer/toothy-ar/resolve/main/best_float32.tflite';
 const INPUT_SIZE   = 640;
 const IOU_THRESH   = 0.45;
 const MAX_DETS     = 30;
@@ -339,6 +348,8 @@ async function loadModel() {
     console.error('tflite is undefined');
     return null;
   }
+  // Always set WASM path before loading
+  tflite.setWasmPath('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.8/dist/');
   try {
     setProgress(15, 'Checking model URL…', 'Testing connection to model file');
     const probe = await fetch(MODEL_URL, { method: 'HEAD', mode: 'cors' });

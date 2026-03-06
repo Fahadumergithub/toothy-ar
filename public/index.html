@@ -251,9 +251,11 @@
 
 <div id="toast"></div>
 
-<!-- TensorFlow.js core -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-<!-- TFLite runtime (WASM backend for running .tflite models in browser) -->
+<!-- Step 1: TF.js core only (not the full bundle) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.17.0/dist/tf-core.min.js"></script>
+<!-- Step 2: CPU backend (required by tflite) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.17.0/dist/tf-backend-cpu.min.js"></script>
+<!-- Step 3: TFLite WASM runtime -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/dist/tf-tflite.min.js"></script>
 <script>
 // ─────────────────────────────────────────────────────────────

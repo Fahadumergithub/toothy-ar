@@ -291,7 +291,7 @@ let videoEl      = null;
 let overlayCanvas= null;
 let ctx          = null;
 let animId       = null;
-let confidenceThreshold = 0.40;
+let confidenceThreshold = 0.25;
 let useFrontCamera = true;
 let stream       = null;
 let simMode      = false;
@@ -381,6 +381,8 @@ async function loadModel() {
 // YOLOv8 OUTPUT PARSING
 // Output shape: [1, 11, 8400]  →  rows: cx,cy,w,h, 7 class scores
 // ─────────────────────────────────────────────────────────────
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+
 function parseYOLOv8(outputTensor, W, H) {
   const data     = outputTensor.dataSync();
   const numBoxes = 8400;
@@ -392,19 +394,21 @@ function parseYOLOv8(outputTensor, W, H) {
   for (let i = 0; i < numBoxes; i++) {
     let bestScore = 0, bestClass = 0;
     for (let c = 0; c < numCls; c++) {
-      const score = data[(4 + c) * numBoxes + i];
+      // Apply sigmoid — model outputs raw logits, not probabilities
+      const score = sigmoid(data[(4 + c) * numBoxes + i]);
       if (score > bestScore) { bestScore = score; bestClass = c; }
     }
     if (bestScore < confidenceThreshold) continue;
+    // Box coords are already in pixel space (0–640), just scale to canvas
     const cx = data[0 * numBoxes + i];
     const cy = data[1 * numBoxes + i];
     const w  = data[2 * numBoxes + i];
     const h  = data[3 * numBoxes + i];
     dets.push({
-      x1: (cx - w/2) * INPUT_SIZE * scaleX,
-      y1: (cy - h/2) * INPUT_SIZE * scaleY,
-      x2: (cx + w/2) * INPUT_SIZE * scaleX,
-      y2: (cy + h/2) * INPUT_SIZE * scaleY,
+      x1: (cx - w/2) * scaleX,
+      y1: (cy - h/2) * scaleY,
+      x2: (cx + w/2) * scaleX,
+      y2: (cy + h/2) * scaleY,
       score: bestScore, classId: bestClass,
     });
   }

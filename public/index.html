@@ -568,23 +568,77 @@ function updateChips(dets) {
 async function loadModel() {
   if (typeof tflite === 'undefined') { setProgress(100,'ERROR','TFLite unavailable'); return null; }
   tflite.setWasmPath('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/');
+
+  // Step 1: Manually fetch model with real download progress
+  // Passing a URL directly to loadTFLiteModel hangs on many devices.
+  // Fetching to ArrayBuffer first is far more reliable.
+  let modelBuffer;
   try {
-    setProgress(15,'Checking model…','Probing Hugging Face endpoint');
-    const p = await fetch(MODEL_URL,{method:'HEAD',mode:'cors'});
-    if (!p.ok) { setProgress(100,'ERROR',`HTTP ${p.status}`); return null; }
-  } catch(e) { setProgress(100,'CORS ERROR',e.message); return null; }
+    setProgress(10, 'Connecting…', 'Reaching Hugging Face');
+    const response = await fetch(MODEL_URL, { mode: 'cors' });
+    if (!response.ok) { setProgress(100,'ERROR',`HTTP ${response.status}`); return null; }
+
+    const contentLength = response.headers.get('Content-Length');
+    const total = contentLength ? parseInt(contentLength, 10) : null;
+
+    // Stream the response so we can show real progress
+    const reader   = response.body.getReader();
+    const chunks   = [];
+    let received   = 0;
+
+    setProgress(15, 'Downloading…', total
+      ? `Fetching model (${(total/1024/1024).toFixed(0)} MB)`
+      : 'Fetching model…');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (total) {
+        // Progress from 15% → 75% during download
+        const dlPct = 15 + Math.round((received / total) * 60);
+        const mb    = (received / 1024 / 1024).toFixed(1);
+        const totalMb = (total / 1024 / 1024).toFixed(0);
+        setProgress(dlPct, `Downloading… ${mb} / ${totalMb} MB`, 'Fetching best_float32.tflite');
+      }
+    }
+
+    // Combine chunks into a single ArrayBuffer
+    const allChunks = new Uint8Array(received);
+    let position = 0;
+    for (const chunk of chunks) { allChunks.set(chunk, position); position += chunk.length; }
+    modelBuffer = allChunks.buffer;
+    console.log(`✅ Download complete: ${(received/1024/1024).toFixed(1)} MB`);
+
+  } catch(e) {
+    setProgress(100, 'DOWNLOAD ERROR', e.message);
+    console.error('Fetch failed:', e);
+    return null;
+  }
+
+  // Step 2: Load TFLite model from the ArrayBuffer
   try {
-    setProgress(20,'Downloading model…','best_float32.tflite (~45MB)');
-    const m = await tflite.loadTFLiteModel(MODEL_URL);
-    setProgress(80,'Warming up…','Running warm-up pass');
-    const dummy = tf.zeros([1,INPUT_SIZE,INPUT_SIZE,3]);
-    const wo = m.predict(dummy);
-    console.log('✅ Model loaded. Shape:', (Array.isArray(wo)?wo[0]:wo).shape);
+    setProgress(78, 'Parsing model…', 'Loading TFLite interpreter');
+    const m = await tflite.loadTFLiteModel(modelBuffer);
+
+    // Step 3: Warm-up pass
+    setProgress(88, 'Warming up…', 'Running warm-up inference');
+    const dummy = tf.zeros([1, INPUT_SIZE, INPUT_SIZE, 3]);
+    const wo    = m.predict(dummy);
+    const shape = (Array.isArray(wo) ? wo[0] : wo).shape;
+    console.log('✅ Model ready. Output shape:', shape);
     dummy.dispose();
     if (Array.isArray(wo)) wo.forEach(t=>t.dispose()); else wo.dispose();
-    setProgress(100,'Ready ✓','MeDenTec YOLOv8 — 7 classes');
+
+    setProgress(100, 'Ready ✓', `MeDenTec YOLOv8 — 7 classes · output ${JSON.stringify(shape)}`);
     return m;
-  } catch(e) { setProgress(100,'LOAD ERROR',e.message); console.error(e); return null; }
+
+  } catch(e) {
+    setProgress(100, 'LOAD ERROR', e.message);
+    console.error('loadTFLiteModel failed:', e);
+    return null;
+  }
 }
 
 // ─── PARSE — NO sigmoid, normalised boxes ───

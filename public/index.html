@@ -1,695 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Toothy AR — Dental Detection</title>
+<title>Toothy AR — Deep Diagnostic</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
-
-  :root {
-    --bg: #0a0a0f;
-    --surface: #13131a;
-    --border: #1e1e2e;
-    --accent: #00e5ff;
-    --accent2: #ff3d71;
-    --text: #e8e8f0;
-    --muted: #5a5a7a;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Syne', sans-serif;
-    overflow: hidden;
-    touch-action: none;
-  }
-
-  /* ── SPLASH ── */
-  #splash {
-    position: fixed; inset: 0; z-index: 100;
-    background: var(--bg);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    transition: opacity 0.6s ease;
-  }
-  #splash.hidden { opacity: 0; pointer-events: none; }
-
-  .splash-logo { font-size: clamp(52px,16vw,96px); line-height:1; margin-bottom:8px; animation: pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-
-  .splash-title { font-size: clamp(28px,8vw,48px); font-weight:800; letter-spacing:-1px; margin-bottom:6px; }
-  .splash-title span { color: var(--accent); }
-
-  .splash-sub {
-    font-family: 'Space Mono', monospace;
-    font-size: clamp(10px,3vw,13px);
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 3px;
-    margin-bottom: 48px;
-  }
-
-  .progress-wrap { width: min(320px,80vw); margin-bottom:16px; }
-  .progress-label {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px; color: var(--muted);
-    margin-bottom: 8px;
-    display: flex; justify-content: space-between;
-  }
-  .progress-bar { height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
-  .progress-fill {
-    height:100%;
-    background: linear-gradient(90deg, var(--accent), #7c3aed);
-    border-radius:2px; width:0%;
-    transition: width 0.4s ease;
-  }
-
-  #splash-status { font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); text-align:center; }
-
-  .start-btn {
-    margin-top:32px; padding:16px 48px;
-    background: var(--accent); color:#000;
-    border:none; border-radius:4px;
-    font-family:'Space Mono',monospace; font-size:13px; font-weight:700;
-    letter-spacing:2px; text-transform:uppercase;
-    cursor:pointer; display:none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .start-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,229,255,0.3); }
-  .start-btn:active { transform:translateY(0); }
-
-  /* ── APP ── */
-  #app { position:fixed; inset:0; display:none; flex-direction:column; }
-  #app.active { display:flex; }
-
-  #canvas-container { position:relative; flex:1; overflow:hidden; background:#000; }
-
-  #video {
-    position:absolute; inset:0;
-    width:100%; height:100%;
-    object-fit:cover;
-    /* mirror front camera visually only — canvas stays un-mirrored */
-  }
-  #overlay {
-    position:absolute; inset:0;
-    width:100%; height:100%;
-    pointer-events:none;
-    /* NEVER apply scaleX(-1) here — box coords are in un-mirrored space */
-  }
-
-  .scan-line {
-    position:absolute; left:0; right:0; height:2px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity:0.6; animation: scan 3s linear infinite; pointer-events:none;
-  }
-  @keyframes scan { 0%{top:0%} 100%{top:100%} }
-
-  .frame-corner { position:absolute; width:28px; height:28px; border-color:var(--accent); border-style:solid; opacity:0.7; }
-  .frame-corner.tl { top:16px; left:16px; border-width:2px 0 0 2px; }
-  .frame-corner.tr { top:16px; right:16px; border-width:2px 2px 0 0; }
-  .frame-corner.bl { bottom:16px; left:16px; border-width:0 0 2px 2px; }
-  .frame-corner.br { bottom:16px; right:16px; border-width:0 2px 2px 0; }
-
-  #statusbar {
-    position:absolute; top:0; left:0; right:0;
-    padding:12px 16px;
-    display:flex; align-items:center; justify-content:space-between;
-    background: linear-gradient(to bottom, rgba(10,10,15,0.8), transparent);
-    pointer-events:none; z-index:10;
-  }
-  .brand { font-size:14px; font-weight:800; letter-spacing:-0.5px; }
-  .brand span { color:var(--accent); }
-
-  .live-pill {
-    display:flex; align-items:center; gap:6px;
-    background:rgba(255,61,113,0.15); border:1px solid rgba(255,61,113,0.3);
-    border-radius:20px; padding:4px 10px;
-    font-family:'Space Mono',monospace; font-size:10px; color:var(--accent2); letter-spacing:1px;
-  }
-  .live-dot { width:6px; height:6px; border-radius:50%; background:var(--accent2); animation:blink 1s ease-in-out infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  #cam-toggle {
-    position:absolute; top:12px; right:16px;
-    width:40px; height:40px;
-    background:rgba(30,30,46,0.9); border:1px solid var(--border);
-    border-radius:50%; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size:18px; z-index:15;
-    transition:background 0.2s; pointer-events:all;
-  }
-  #cam-toggle:active { background:var(--border); }
-
-  /* ── HUD ── */
-  #hud {
-    background:rgba(10,10,15,0.92);
-    backdrop-filter:blur(12px);
-    border-top:1px solid var(--border);
-    padding:12px 16px 20px;
-    flex-shrink:0;
-  }
-  .hud-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .hud-title { font-size:11px; font-family:'Space Mono',monospace; color:var(--muted); text-transform:uppercase; letter-spacing:2px; }
-  .fps-badge {
-    font-family:'Space Mono',monospace; font-size:11px; color:var(--accent);
-    background:rgba(0,229,255,0.1); border:1px solid rgba(0,229,255,0.2);
-    padding:2px 8px; border-radius:3px;
-  }
-
-  .hud-stats { display:flex; gap:16px; align-items:flex-end; margin-bottom:10px; }
-  .stat-item { display:flex; flex-direction:column; }
-  .tooth-count { font-size:clamp(28px,8vw,40px); font-weight:800; color:var(--accent); line-height:1; margin-bottom:2px; }
-  .tooth-count-label { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:2px; }
-
-  .detection-grid { display:flex; gap:6px; flex-wrap:wrap; }
-  .det-chip {
-    display:flex; align-items:center; gap:5px;
-    padding:4px 10px; border-radius:3px; border:1px solid;
-    font-family:'Space Mono',monospace; font-size:10px;
-    opacity:0.35; transition:opacity 0.2s, transform 0.2s; white-space:nowrap;
-  }
-  .det-chip.active { opacity:1; transform:scale(1.05); }
-  .det-chip .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-
-  .threshold-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
-  .threshold-row label { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); white-space:nowrap; }
-  .threshold-row input[type=range] { flex:1; accent-color:var(--accent); height:3px; }
-  .threshold-val { font-family:'Space Mono',monospace; font-size:10px; color:var(--accent); min-width:32px; text-align:right; }
-
-  #toast {
-    position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
-    background:var(--accent2); color:#fff;
-    padding:10px 20px; border-radius:4px;
-    font-family:'Space Mono',monospace; font-size:11px;
-    z-index:200; opacity:0; transition:opacity 0.3s;
-    pointer-events:none; max-width:90vw; text-align:center;
-  }
-  #toast.show { opacity:1; }
+  body { background:#0a0a0f; color:#e8e8f0; font-family:'Space Mono',monospace; padding:20px; font-size:13px; }
+  pre  { background:#13131a; border:1px solid #1e1e2e; padding:14px; border-radius:6px; white-space:pre-wrap; word-break:break-all; margin:6px 0; }
+  h3   { color:#00e5ff; margin:18px 0 6px; }
+  .ok  { color:#51cf66; } .warn { color:#ffd43b; } .err { color:#ff3d71; }
+  button { background:#00e5ff; color:#000; border:none; padding:12px 28px; border-radius:4px;
+           font-family:'Space Mono',monospace; font-weight:700; cursor:pointer; margin:6px 4px; letter-spacing:1px; }
 </style>
 </head>
 <body>
+<h2>🦷 Toothy AR — Deep Model Diagnostic</h2>
+<p style="color:#5a5a7a">This will tell us exactly what predict() returns and where the data lives.</p>
+<button onclick="runDiag()">▶ Run Diagnostic</button>
+<div id="out"></div>
 
-<!-- SPLASH -->
-<div id="splash">
-  <div class="splash-logo">🦷</div>
-  <div class="splash-title">Toothy<span>AR</span></div>
-  <div class="splash-sub">YOLOv8 · Real-time · On-device</div>
-  <div class="progress-wrap">
-    <div class="progress-label">
-      <span id="progress-text">Initialising…</span>
-      <span id="progress-pct">0%</span>
-    </div>
-    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-  </div>
-  <div id="splash-status">Loading TensorFlow.js runtime</div>
-  <button class="start-btn" id="start-btn" onclick="startAR()">START DEMO</button>
-</div>
-
-<!-- APP -->
-<div id="app">
-  <div id="canvas-container">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="overlay"></canvas>
-    <div class="scan-line"></div>
-    <div class="frame-corner tl"></div>
-    <div class="frame-corner tr"></div>
-    <div class="frame-corner bl"></div>
-    <div class="frame-corner br"></div>
-    <div id="statusbar">
-      <div class="brand">Toothy<span>AR</span></div>
-      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
-    </div>
-    <button id="cam-toggle" onclick="toggleCamera()" title="Flip camera">🔄</button>
-  </div>
-
-  <div id="hud">
-    <div class="hud-top">
-      <div class="hud-stats">
-        <div class="stat-item">
-          <div class="tooth-count" id="tooth-count">0</div>
-          <div class="tooth-count-label">Teeth Found</div>
-        </div>
-        <div class="stat-item" style="margin-bottom:4px">
-          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)">Avg Conf</div>
-          <div style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text)" id="avg-conf">—</div>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <div class="fps-badge" id="fps-badge">0 FPS</div>
-        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted)" id="inf-time">— ms</div>
-      </div>
-    </div>
-    <div class="threshold-row">
-      <label>CONF</label>
-      <input type="range" id="threshold-slider" min="5" max="90" value="25" oninput="updateThreshold(this.value)">
-      <div class="threshold-val" id="threshold-val">0.25</div>
-    </div>
-    <div style="height:8px"></div>
-    <div class="hud-title" style="margin-bottom:6px">DETECTIONS</div>
-    <div class="detection-grid" id="detection-grid"></div>
-  </div>
-</div>
-
-<div id="toast"></div>
-
-<!--
-  IMPORTANT: Load the FULL tfjs bundle — not tfjs-core + backend separately.
-  The split-package approach in the previous version meant tf.browser.fromPixels
-  and tf.image.resizeBilinear were missing at runtime.
--->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/tf-tflite.min.js"></script>
-
 <script>
-// ─────────────────────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────────────────────
-const MODEL_URL  = 'https://huggingface.co/fahadumer/toothy-ar/resolve/main/best_float32.tflite';
-const INPUT_SIZE = 640;
-const IOU_THRESH = 0.45;
-const MAX_DETS   = 50;
+const MODEL_URL = 'https://huggingface.co/fahadumer/toothy-ar/resolve/main/best_float32.tflite';
 
-// 7 classes confirmed from model README — output shape [1, 11, 8400] = 4 box + 7 classes
-const CLASSES = [
-  { name: 'Premolar',        color: '#00e5ff' }, // 0
-  { name: 'Canine',          color: '#ff6b6b' }, // 1
-  { name: 'Central Incisor', color: '#51cf66' }, // 2
-  { name: 'Lateral Incisor', color: '#ffd43b' }, // 3
-  { name: 'Molar',           color: '#cc5de8' }, // 4
-  { name: 'Missing',         color: '#ff3d71' }, // 5
-  { name: 'Wisdom Tooth',    color: '#74c0fc' }, // 6
-];
-const NUM_CLASSES = CLASSES.length; // 7 → rows = 4+7 = 11 ✓
-
-// ─────────────────────────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────────────────────────
-let model               = null;
-let videoEl             = null;
-let overlayCanvas       = null;
-let ctx                 = null;
-let animId              = null;
-let confidenceThreshold = 0.25;
-let useFrontCamera      = true;
-let stream              = null;
-let simMode             = false;
-let lastFpsTime         = performance.now();
-let frameCount          = 0;
-let debugLogged         = false;
-
-// ─────────────────────────────────────────────────────────────
-// UI HELPERS
-// ─────────────────────────────────────────────────────────────
-function setProgress(pct, text, sub) {
-  document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('progress-text').textContent = text;
-  document.getElementById('progress-pct').textContent  = pct + '%';
-  if (sub) document.getElementById('splash-status').textContent = sub;
+function log(msg, cls='') {
+  document.getElementById('out').innerHTML += `<pre class="${cls}">${msg}</pre>`;
 }
-function showStartButton() { document.getElementById('start-btn').style.display = 'block'; }
-function showToast(msg, duration = 3000) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), duration);
+function h(t) {
+  document.getElementById('out').innerHTML += `<h3>${t}</h3>`;
 }
 
-// ─────────────────────────────────────────────────────────────
-// DETECTION CHIPS
-// ─────────────────────────────────────────────────────────────
-function buildDetectionGrid() {
-  const grid = document.getElementById('detection-grid');
-  grid.innerHTML = '';
-  CLASSES.forEach((cls, i) => {
-    const chip = document.createElement('div');
-    chip.className = 'det-chip';
-    chip.id = 'chip-' + i;
-    chip.style.borderColor = cls.color + '44';
-    chip.style.color = cls.color;
-    chip.innerHTML = `<div class="dot" style="background:${cls.color}"></div><span>${cls.name}</span>`;
-    grid.appendChild(chip);
-  });
-}
-function updateChips(detections) {
-  const seen = new Set(detections.map(d => d.classId));
-  CLASSES.forEach((_, i) => {
-    const chip = document.getElementById('chip-' + i);
-    if (chip) chip.classList.toggle('active', seen.has(i));
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
-// MODEL LOADING
-// ─────────────────────────────────────────────────────────────
-async function loadModel() {
-  if (typeof tflite === 'undefined') {
-    setProgress(100, 'ERROR', 'TFLite not loaded — check CDN');
-    console.error('tflite global is undefined');
-    return null;
-  }
-
-  // Must set WASM path before any tflite calls
+async function runDiag() {
+  document.getElementById('out').innerHTML = '';
   tflite.setWasmPath('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/');
-
-  // Probe URL first — catches CORS / 404 early
-  try {
-    setProgress(15, 'Checking model URL…', 'Probing Hugging Face endpoint');
-    const probe = await fetch(MODEL_URL, { method: 'HEAD', mode: 'cors' });
-    if (!probe.ok) {
-      setProgress(100, 'ERROR', `Model URL returned HTTP ${probe.status}`);
-      return null;
-    }
-  } catch (e) {
-    setProgress(100, 'CORS ERROR', 'Cannot reach model: ' + e.message);
-    console.error('HEAD probe failed:', e);
-    return null;
-  }
-
-  try {
-    setProgress(20, 'Downloading model…', 'best_float32.tflite from Hugging Face (~45MB)');
-    const m = await tflite.loadTFLiteModel(MODEL_URL);
-
-    setProgress(80, 'Warming up…', 'Running warm-up inference pass');
-    const dummy   = tf.zeros([1, INPUT_SIZE, INPUT_SIZE, 3]);
-    const warmOut = m.predict(dummy);
-    const outT    = Array.isArray(warmOut) ? warmOut[0] : warmOut;
-
-    console.log('✅ Model loaded successfully');
-    console.log('   Output shape:', outT.shape);
-    // Expected: [1, 11, 8400]  →  4 box coords + 7 class scores × 8400 anchors
-    console.log('   Expected:    [1, ' + (4 + NUM_CLASSES) + ', 8400]');
-
-    dummy.dispose();
-    if (Array.isArray(warmOut)) warmOut.forEach(t => t.dispose()); else warmOut.dispose();
-
-    setProgress(100, 'Ready ✓', `YOLOv8 loaded — ${NUM_CLASSES} classes, output [1,${4+NUM_CLASSES},8400]`);
-    return m;
-  } catch (e) {
-    setProgress(100, 'LOAD ERROR', 'Model failed: ' + e.message);
-    console.error('loadTFLiteModel failed:', e);
-    return null;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// YOLOv8 OUTPUT PARSING
-//
-// Output tensor shape: [1, 11, 8400]
-//   Axis-1 rows:  0=cx  1=cy  2=w  3=h  4..10=class scores (7 classes)
-//   Axis-2 cols:  8400 anchor candidates
-//
-// Key facts about YOLOv8 float32 TFLite export:
-//   • Boxes are in INPUT_SIZE pixel space (0–640), NOT normalised 0–1
-//   • Class scores are raw logits → we apply sigmoid here
-//   • There is NO separate objectness score (unlike YOLOv5)
-//   • We just pick the highest class score per anchor
-// ─────────────────────────────────────────────────────────────
-function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
-
-function parseYOLOv8(outputTensor, canvasW, canvasH) {
-  const raw      = outputTensor.dataSync(); // flat Float32Array
-  const shape    = outputTensor.shape;      // [1, 11, 8400]
-  const numBoxes = shape[2];                // 8400
-  const scaleX   = canvasW / INPUT_SIZE;
-  const scaleY   = canvasH / INPUT_SIZE;
-  const dets     = [];
-
-  // One-time debug log
-  if (!debugLogged) {
-    const classRow0 = [];
-    for (let i = 0; i < Math.min(20, numBoxes); i++) classRow0.push(raw[4 * numBoxes + i].toFixed(3));
-    console.log('🔍 Shape:', shape, '| numBoxes:', numBoxes);
-    console.log('🔍 Sample raw class-0 logits (first 20):', classRow0.join(', '));
-    console.log('🔍 Sample sigmoid scores:', classRow0.map(v => sigmoid(parseFloat(v)).toFixed(3)).join(', '));
-    console.log('🔍 Threshold:', confidenceThreshold);
-    debugLogged = true;
-  }
-
-  for (let i = 0; i < numBoxes; i++) {
-    // Find best class and score for this anchor
-    let bestScore = 0, bestClass = 0;
-    for (let c = 0; c < NUM_CLASSES; c++) {
-      const logit = raw[(4 + c) * numBoxes + i];
-      const score = sigmoid(logit); // YOLOv8 TFLite float32 outputs raw logits
-      if (score > bestScore) { bestScore = score; bestClass = c; }
-    }
-
-    if (bestScore < confidenceThreshold) continue;
-
-    // Box is centre-format in INPUT_SIZE pixel space
-    const cx = raw[0 * numBoxes + i];
-    const cy = raw[1 * numBoxes + i];
-    const w  = raw[2 * numBoxes + i];
-    const h  = raw[3 * numBoxes + i];
-
-    dets.push({
-      x1: (cx - w / 2) * scaleX,
-      y1: (cy - h / 2) * scaleY,
-      x2: (cx + w / 2) * scaleX,
-      y2: (cy + h / 2) * scaleY,
-      score: bestScore,
-      classId: bestClass,
-    });
-  }
-
-  return nms(dets, IOU_THRESH).slice(0, MAX_DETS);
-}
-
-// ─────────────────────────────────────────────────────────────
-// NMS
-// ─────────────────────────────────────────────────────────────
-function iou(a, b) {
-  const ix1 = Math.max(a.x1, b.x1), iy1 = Math.max(a.y1, b.y1);
-  const ix2 = Math.min(a.x2, b.x2), iy2 = Math.min(a.y2, b.y2);
-  const iw  = Math.max(0, ix2 - ix1), ih = Math.max(0, iy2 - iy1);
-  const inter = iw * ih;
-  return inter / ((a.x2-a.x1)*(a.y2-a.y1) + (b.x2-b.x1)*(b.y2-b.y1) - inter + 1e-6);
-}
-function nms(dets, thresh) {
-  dets.sort((a, b) => b.score - a.score);
-  const keep = [], suppressed = new Set();
-  for (let i = 0; i < dets.length; i++) {
-    if (suppressed.has(i)) continue;
-    keep.push(dets[i]);
-    for (let j = i + 1; j < dets.length; j++) {
-      if (iou(dets[i], dets[j]) > thresh) suppressed.add(j);
-    }
-  }
-  return keep;
-}
-
-// ─────────────────────────────────────────────────────────────
-// DRAW DETECTIONS
-// ─────────────────────────────────────────────────────────────
-function drawDetections(dets, W, H) {
-  ctx.clearRect(0, 0, W, H);
-
-  dets.forEach(det => {
-    const cls   = CLASSES[det.classId];
-    const color = cls.color;
-    const x  = det.x1, y  = det.y1;
-    const bw = det.x2 - det.x1, bh = det.y2 - det.y1;
-    const label = `${cls.name}  ${(det.score * 100).toFixed(0)}%`;
-
-    // Glowing box
-    ctx.save();
-    ctx.shadowBlur = 12; ctx.shadowColor = color;
-    ctx.strokeStyle = color; ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, bw, bh);
-    ctx.restore();
-
-    // Semi-transparent fill
-    ctx.fillStyle = color + '18';
-    ctx.fillRect(x, y, bw, bh);
-
-    // Corner accent lines
-    const cs = 10;
-    ctx.save();
-    ctx.strokeStyle = color; ctx.lineWidth = 3;
-    ctx.shadowBlur = 8; ctx.shadowColor = color;
-    [[x, y, 1, 1], [x+bw, y, -1, 1], [x, y+bh, 1, -1], [x+bw, y+bh, -1, -1]].forEach(([px, py, dx, dy]) => {
-      ctx.beginPath();
-      ctx.moveTo(px + dx * cs, py);
-      ctx.lineTo(px, py);
-      ctx.lineTo(px, py + dy * cs);
-      ctx.stroke();
-    });
-    ctx.restore();
-
-    // Label pill
-    ctx.font = 'bold 11px "Space Mono",monospace';
-    const tw = ctx.measureText(label).width, lh = 18;
-    const lx = x, ly = y > lh + 2 ? y - lh - 2 : y + bh + 2;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(lx, ly, tw + 14, lh, 3);
-    else ctx.rect(lx, ly, tw + 14, lh);
-    ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.fillText(label, lx + 7, ly + 13);
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
-// SIMULATION MODE (fallback when model unavailable)
-// ─────────────────────────────────────────────────────────────
-let simTick = 0;
-function getSimDetections(W, H) {
-  simTick++;
-  const t  = simTick * 0.02;
-  const cx = W * 0.5 + Math.sin(t * 0.7) * W * 0.04;
-  const cy = H * 0.55 + Math.cos(t * 0.5) * H * 0.03;
-  return [
-    { classId:2, x1:cx-180, y1:cy-30, x2:cx-130, y2:cy+30, score:0.91 },
-    { classId:3, x1:cx-130, y1:cy-28, x2:cx-88,  y2:cy+28, score:0.88 },
-    { classId:1, x1:cx-88,  y1:cy-40, x2:cx-48,  y2:cy+32, score:0.85 },
-    { classId:0, x1:cx-48,  y1:cy-35, x2:cx-4,   y2:cy+30, score:0.79 },
-    { classId:0, x1:cx+4,   y1:cy-35, x2:cx+48,  y2:cy+30, score:0.82 },
-    { classId:1, x1:cx+48,  y1:cy-40, x2:cx+88,  y2:cy+32, score:0.86 },
-    { classId:3, x1:cx+88,  y1:cy-28, x2:cx+130, y2:cy+28, score:0.77 },
-    { classId:2, x1:cx+130, y1:cy-30, x2:cx+180, y2:cy+30, score:0.93 },
-    { classId:4, x1:cx-240, y1:cy-25, x2:cx-185, y2:cy+25, score:0.70 },
-    { classId:5, x1:cx+185, y1:cy-25, x2:cx+240, y2:cy+25, score:0.65 },
-  ].filter(d => d.score >= confidenceThreshold);
-}
-
-// ─────────────────────────────────────────────────────────────
-// STATS UPDATE
-// ─────────────────────────────────────────────────────────────
-function updateStats(dets, inferenceMs) {
-  document.getElementById('tooth-count').textContent = dets.length;
-  document.getElementById('avg-conf').textContent = dets.length
-    ? (dets.reduce((s, d) => s + d.score, 0) / dets.length * 100).toFixed(0) + '%'
-    : '—';
-  if (inferenceMs !== null)
-    document.getElementById('inf-time').textContent = inferenceMs.toFixed(1) + 'ms';
-
-  frameCount++;
-  const now = performance.now(), delta = now - lastFpsTime;
-  if (delta >= 1000) {
-    document.getElementById('fps-badge').textContent = Math.round(frameCount * 1000 / delta) + ' FPS';
-    frameCount = 0; lastFpsTime = now;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// MAIN DETECTION LOOP
-// ─────────────────────────────────────────────────────────────
-async function runLoop() {
-  if (!videoEl || videoEl.readyState < 2) {
-    animId = requestAnimationFrame(runLoop);
-    return;
-  }
-
-  // Use actual video pixel dimensions — reliable once readyState >= 2
-  const W = videoEl.videoWidth  || 640;
-  const H = videoEl.videoHeight || 480;
-
-  // Sync canvas resolution to video (only when it changes)
-  if (overlayCanvas.width !== W || overlayCanvas.height !== H) {
-    overlayCanvas.width  = W;
-    overlayCanvas.height = H;
-  }
-
-  let dets = [], inferenceMs = null;
-
-  if (model) {
-    try {
-      const t0  = performance.now();
-      const inp = tf.tidy(() =>
-        tf.browser.fromPixels(videoEl)
-          .resizeBilinear([INPUT_SIZE, INPUT_SIZE])
-          .div(255.0)
-          .expandDims(0)
-      );
-      const out = model.predict(inp);
-      inferenceMs = performance.now() - t0;
-
-      const outTensor = Array.isArray(out) ? out[0] : out;
-      dets = parseYOLOv8(outTensor, W, H);
-
-      inp.dispose();
-      if (Array.isArray(out)) out.forEach(t => t.dispose()); else out.dispose();
-    } catch (e) {
-      console.error('Inference error:', e);
-    }
-  } else if (simMode) {
-    dets = getSimDetections(W, H);
-  }
-
-  drawDetections(dets, W, H);
-  updateStats(dets, inferenceMs);
-  updateChips(dets);
-
-  animId = requestAnimationFrame(runLoop);
-}
-
-// ─────────────────────────────────────────────────────────────
-// CAMERA
-// ─────────────────────────────────────────────────────────────
-async function startCamera(facingMode = 'user') {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false,
-    });
-    videoEl.srcObject = stream;
-    // Mirror video CSS for front camera — canvas is NEVER mirrored
-    videoEl.style.transform = facingMode === 'user' ? 'scaleX(-1)' : 'none';
-    return true;
-  } catch (e) {
-    showToast('Camera error: ' + e.message);
-    return false;
-  }
-}
-
-function toggleCamera() {
-  useFrontCamera = !useFrontCamera;
-  startCamera(useFrontCamera ? 'user' : 'environment');
-}
-
-function updateThreshold(val) {
-  confidenceThreshold = val / 100;
-  document.getElementById('threshold-val').textContent = confidenceThreshold.toFixed(2);
-  debugLogged = false; // re-trigger debug log at new threshold
-}
-
-// ─────────────────────────────────────────────────────────────
-// START AR (called by splash button)
-// ─────────────────────────────────────────────────────────────
-async function startAR() {
-  document.getElementById('splash').classList.add('hidden');
-  setTimeout(() => document.getElementById('splash').style.display = 'none', 700);
-  document.getElementById('app').classList.add('active');
-
-  videoEl       = document.getElementById('video');
-  overlayCanvas = document.getElementById('overlay');
-  ctx           = overlayCanvas.getContext('2d');
-
-  await startCamera('user');
-
-  if (!model) {
-    simMode = true;
-    showToast('Simulation mode — model load failed', 5000);
-  }
-
-  runLoop();
-}
-
-// ─────────────────────────────────────────────────────────────
-// INIT — runs immediately on page load
-// ─────────────────────────────────────────────────────────────
-(async () => {
-  buildDetectionGrid();
-  setProgress(5, 'Loading TF.js…', 'Initialising TensorFlow.js');
   await tf.ready();
-  setProgress(15, 'TF.js ready', 'Backend: ' + tf.getBackend());
-  model = await loadModel();
-  if (!model) setProgress(100, 'Ready (sim)', 'Model unavailable — simulation mode active');
-  showStartButton();
-})();
+  log('TF backend: ' + tf.getBackend(), 'ok');
+
+  h('Step 1 — Load model');
+  let m;
+  try {
+    m = await tflite.loadTFLiteModel(MODEL_URL);
+    log('✅ Model loaded', 'ok');
+  } catch(e) { log('❌ LOAD FAILED: ' + e, 'err'); return; }
+
+  h('Step 2 — Inspect raw predict() return value');
+  const inp = tf.randomUniform([1, 640, 640, 3], 0, 1);
+  const raw = m.predict(inp);
+
+  log('typeof result: ' + typeof raw);
+  log('Is Array: ' + Array.isArray(raw));
+  log('Is Tensor: ' + (raw instanceof tf.Tensor));
+
+  // Check if it's a named map
+  if (typeof raw === 'object' && !Array.isArray(raw) && !(raw instanceof tf.Tensor)) {
+    const keys = Object.keys(raw);
+    log('⚠️  Result is a NAMED TENSOR MAP with keys: ' + JSON.stringify(keys), 'warn');
+    log('This means model.predict() returns {outputName: Tensor} not a plain Tensor', 'warn');
+    log('You must access raw["' + keys[0] + '"] to get the actual tensor', 'warn');
+
+    h('Step 3 — Inspect each named output');
+    for (const k of keys) {
+      const t = raw[k];
+      log(`Key "${k}":  shape=${JSON.stringify(t.shape)}  dtype=${t.dtype}`);
+      const d = t.dataSync();
+      const nz = Array.from(d).filter(v => v !== 0).length;
+      const mn = Math.min(...d).toFixed(5);
+      const mx = Math.max(...d).toFixed(5);
+      const mean = (Array.from(d).reduce((a,b)=>a+b,0)/d.length).toFixed(5);
+      log(`  total values=${d.length}  non-zero=${nz}  min=${mn}  max=${mx}  mean=${mean}`);
+
+      if (t.shape.length === 3) {
+        const [B, R, C] = t.shape;
+        log(`  → YOLOv8 layout [batch=${B}, rows=${R}, anchors=${C}]`);
+        log(`  → rows 0-3 = box coords, rows 4-${R-1} = ${R-4} class scores`);
+        log('  → Row-by-row summary:');
+        for (let r = 0; r < R; r++) {
+          const rowVals = [];
+          for (let c = 0; c < C; c++) rowVals.push(d[r*C+c]);
+          const rMn = Math.min(...rowVals).toFixed(4);
+          const rMx = Math.max(...rowVals).toFixed(4);
+          const rNZ = rowVals.filter(v=>v!==0).length;
+          const sample = rowVals.slice(0,5).map(v=>v.toFixed(3)).join(', ');
+          log(`    row[${String(r).padStart(2)}]: min=${rMn} max=${rMx} non-zero=${rNZ}/${C}  sample=[${sample}]`);
+        }
+      }
+      t.dispose();
+    }
+  } else {
+    // It's a plain tensor or array
+    const t = Array.isArray(raw) ? raw[0] : raw;
+    log('✅ Result is a plain Tensor (or array[0])', 'ok');
+    log(`shape=${JSON.stringify(t.shape)}  dtype=${t.dtype}`);
+    const d = t.dataSync();
+    const nz = Array.from(d).filter(v => v !== 0).length;
+    const mn = Math.min(...d).toFixed(5);
+    const mx = Math.max(...d).toFixed(5);
+    log(`total=${d.length}  non-zero=${nz}  min=${mn}  max=${mx}`);
+
+    if (t.shape.length === 3) {
+      const [B, R, C] = t.shape;
+      log(`YOLOv8 layout: [${B}, ${R}, ${C}]`);
+      for (let r = 0; r < R; r++) {
+        const rowVals = [];
+        for (let c = 0; c < C; c++) rowVals.push(d[r*C+c]);
+        const rMn = Math.min(...rowVals).toFixed(4);
+        const rMx = Math.max(...rowVals).toFixed(4);
+        const rNZ = rowVals.filter(v=>v!==0).length;
+        log(`  row[${String(r).padStart(2)}]: min=${rMn} max=${rMx} non-zero=${rNZ}/${C}`);
+      }
+    }
+    if (Array.isArray(raw)) raw.forEach(t=>t.dispose()); else raw.dispose();
+  }
+
+  inp.dispose();
+
+  h('Step 4 — Conclusion');
+  log('Paste the output above back to Claude to get a targeted fix ✅', 'ok');
+}
 </script>
 </body>
 </html>

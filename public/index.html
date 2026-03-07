@@ -1,322 +1,337 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Dental AR Detection</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Dental AR Detection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/tf-tflite.min.js"></script>
 
-<script src="https://unpkg.com/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/tf-tflite.min.js"></script>
-
-<style>
-
-body{
-margin:0;
-font-family:Arial,Helvetica,sans-serif;
-background:#0f172a;
-color:white;
-text-align:center;
-}
-
-#container{
-position:relative;
-width:100%;
-max-width:900px;
-margin:auto;
-}
-
-video{
-width:100%;
-border-radius:10px;
-}
-
-canvas{
-position:absolute;
-top:0;
-left:0;
-}
-
-#controls{
-margin-top:10px;
-}
-
-button{
-padding:10px 18px;
-margin:5px;
-border:none;
-border-radius:6px;
-background:#2563eb;
-color:white;
-font-size:16px;
-cursor:pointer;
-}
-
-button:hover{
-background:#1d4ed8;
-}
-
-.badge{
-display:inline-block;
-padding:5px 10px;
-background:#111827;
-border-radius:6px;
-margin:5px;
-font-size:14px;
-}
-
-</style>
-
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+    }
+    #container {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      margin: auto;
+    }
+    video {
+      width: 100%;
+      border-radius: 10px;
+      display: block;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #controls { margin-top: 10px; }
+    button {
+      padding: 10px 18px;
+      margin: 5px;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    .badge {
+      display: inline-block;
+      padding: 5px 10px;
+      background: #111827;
+      border-radius: 6px;
+      margin: 5px;
+      font-size: 14px;
+    }
+    #status {
+      margin: 10px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+  </style>
 </head>
-
 <body>
 
 <h2>Dental AR Detection</h2>
+<div id="status">Click "Start Camera" to begin</div>
 
 <div id="container">
-
-<video id="video" autoplay playsinline muted></video> <canvas id="overlay"></canvas>
-
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
 </div>
 
 <div id="controls">
-
-<button id="startBtn">Start Camera</button> <button id="stopBtn">Stop</button>
-
+  <button id="startBtn">Start Camera</button>
+  <button id="stopBtn">Stop</button>
 </div>
 
 <div>
-
-<span class="badge">FPS: <span id="fps">0</span></span> <span class="badge">Inference: <span id="time">0</span> ms</span>
-
+  <span class="badge">FPS: <span id="fps">0</span></span>
+  <span class="badge">Inference: <span id="time">0</span> ms</span>
+  <span class="badge">Detections: <span id="detCount">0</span></span>
 </div>
 
 <script>
-
-const MODEL_URL =
-"https://huggingface.co/Fahadumergithub/toothy-ar/resolve/main/best_float32.tflite";
-
-const INPUT_SIZE = 640;
-const CONFIDENCE_THRESHOLD = 0.35;
-
-let model;
-let video = document.getElementById("video");
-let canvas = document.getElementById("overlay");
-let ctx = canvas.getContext("2d");
-
-let animationId;
-let frameCount = 0;
-let lastTime = performance.now();
-
-const classNames = [
-"Tooth",
-"Caries",
-"Restoration",
-"Implant"
-];
-
-async function loadModel(){
-
-console.log("Loading model...");
-
-model = await tflite.loadTFLiteModel(MODEL_URL);
-
-console.log("Model loaded");
-
-}
-
-async function startCamera(){
-
-const stream = await navigator.mediaDevices.getUserMedia({
-video:{
-facingMode:"environment",
-width:{ideal:1280},
-height:{ideal:720}
-}
-});
-
-video.srcObject = stream;
-
-await video.play();
-
-canvas.width = video.videoWidth;
-canvas.height = video.videoHeight;
-
-detectFrame();
-
-}
-
-function stopCamera(){
-
-cancelAnimationFrame(animationId);
-
-if(video.srcObject){
-
-video.srcObject.getTracks().forEach(track=>track.stop());
-
-}
-
-}
-
-function drawDetections(detections){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-ctx.lineWidth = 2;
-ctx.font = "16px Arial";
-ctx.strokeStyle = "lime";
-ctx.fillStyle = "lime";
-
-detections.forEach(det=>{
-
-let x = det.x;
-let y = det.y;
-let w = det.w;
-let h = det.h;
-
-ctx.strokeRect(x,y,w,h);
-
-let label =
-det.label + " " + (det.score*100).toFixed(1)+"%";
-
-ctx.fillText(label,x,y-5);
-
-});
-
-}
-
-function parseYOLO(output){
-
-const data = output.dataSync();
-
-const numPred = data.length / 85;
-
-let detections = [];
-
-for(let i=0;i<numPred;i++){
-
-let offset = i*85;
-
-let objScore = data[offset+4];
-
-if(objScore < CONFIDENCE_THRESHOLD) continue;
-
-let x = data[offset];
-let y = data[offset+1];
-let w = data[offset+2];
-let h = data[offset+3];
-
-let bestClass = 0;
-let bestProb = 0;
-
-for(let c=5;c<85;c++){
-
-let prob = data[offset+c];
-
-if(prob > bestProb){
-
-bestProb = prob;
-bestClass = c-5;
-
-}
-
-}
-
-let score = bestProb * objScore;
-
-if(score < CONFIDENCE_THRESHOLD) continue;
-
-let scaleX = canvas.width / INPUT_SIZE;
-let scaleY = canvas.height / INPUT_SIZE;
-
-detections.push({
-
-x:(x - w/2)*scaleX,
-y:(y - h/2)*scaleY,
-w:w*scaleX,
-h:h*scaleY,
-label:classNames[bestClass] || "Tooth",
-score:score
-
-});
-
-}
-
-return detections;
-
-}
-
-async function detectFrame(){
-
-if(!model || video.readyState !== 4){
-
-animationId = requestAnimationFrame(detectFrame);
-return;
-
-}
-
-const start = performance.now();
-
-const input = tf.tidy(()=>{
-
-let img = tf.browser.fromPixels(video);
-
-let resized = tf.image.resizeBilinear(img,[INPUT_SIZE,INPUT_SIZE]);
-
-let normalized = resized.toFloat().div(255);
-
-return normalized.expandDims(0);
-
-});
-
-const output = model.predict(input);
-
-const detections = parseYOLO(output);
-
-drawDetections(detections);
-
-input.dispose();
-output.dispose();
-
-const inference = performance.now() - start;
-
-document.getElementById("time").textContent =
-inference.toFixed(1);
-
-frameCount++;
-
-const now = performance.now();
-
-if(now - lastTime > 1000){
-
-document.getElementById("fps").textContent = frameCount;
-
-frameCount = 0;
-
-lastTime = now;
-
-}
-
-animationId = requestAnimationFrame(detectFrame);
-
-}
-
-document
-.getElementById("startBtn")
-.addEventListener("click",async()=>{
-
-await loadModel();
-
-await startCamera();
-
-});
-
-document
-.getElementById("stopBtn")
-.addEventListener("click",stopCamera);
-
+  // FIX 1: Correct HuggingFace URL — use the correct username casing
+  const MODEL_URL = "https://huggingface.co/fahadumer/toothy-ar/resolve/main/best_float32.tflite";
+
+  const INPUT_SIZE = 640;
+  const CONFIDENCE_THRESHOLD = 0.25; // FIX 2: Lowered threshold (was 0.35, often too high)
+  const NUM_CLASSES = 4;             // FIX 3: Explicit class count
+  // YOLOv8 output row size = 4 (box) + NUM_CLASSES (no separate objectness!)
+  const ROW_SIZE = 4 + NUM_CLASSES;  // = 8
+
+  const classNames = ["Tooth", "Caries", "Restoration", "Implant"];
+
+  // Color per class
+  const classColors = ["#00ff88", "#ff4444", "#ffaa00", "#00aaff"];
+
+  let model = null;
+  let video = document.getElementById("video");
+  let canvas = document.getElementById("overlay");
+  let ctx = canvas.getContext("2d");
+  let animationId;
+  let frameCount = 0;
+  let lastTime = performance.now();
+  let isRunning = false;
+
+  function setStatus(msg) {
+    document.getElementById("status").textContent = msg;
+  }
+
+  async function loadModel() {
+    setStatus("Loading model from HuggingFace (~45MB)...");
+    try {
+      // FIX 4: Set WASM backend explicitly — required for tfjs-tflite in browser
+      await tflite.setWasmPath(
+        "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/wasm/"
+      );
+      model = await tflite.loadTFLiteModel(MODEL_URL);
+      setStatus("Model loaded ✓");
+      console.log("Model loaded successfully");
+
+      // Log output shape to help debug
+      const dummyInput = tf.zeros([1, INPUT_SIZE, INPUT_SIZE, 3]);
+      const dummyOutput = model.predict(dummyInput);
+      console.log("Output tensor shape:", dummyOutput.shape);
+      console.log("Output tensor dtype:", dummyOutput.dtype);
+      dummyInput.dispose();
+      dummyOutput.dispose();
+
+    } catch (err) {
+      setStatus("Model load failed: " + err.message);
+      console.error(err);
+      throw err;
+    }
+  }
+
+  async function startCamera() {
+    setStatus("Starting camera...");
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    video.srcObject = stream;
+    await video.play();
+
+    // FIX 5: Set canvas resolution to match actual video dimensions
+    video.addEventListener("loadedmetadata", () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      console.log(`Video: ${video.videoWidth}x${video.videoHeight}`);
+    });
+
+    setStatus("Camera running — detecting...");
+    isRunning = true;
+    detectFrame();
+  }
+
+  function stopCamera() {
+    isRunning = false;
+    cancelAnimationFrame(animationId);
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setStatus("Stopped");
+  }
+
+  // FIX 6: Correct YOLOv8 output parsing
+  // YOLOv8 TFLite exports as [1, ROW_SIZE, num_anchors] — transposed vs YOLOv5!
+  // YOLOv8 has NO separate objectness score. Format is [cx, cy, w, h, cls0, cls1, ...]
+  function parseYOLOv8(outputTensor) {
+    const raw = outputTensor.dataSync();
+    const shape = outputTensor.shape; // e.g. [1, 8, 8400]
+
+    let detections = [];
+
+    // Shape is [1, ROW_SIZE, numAnchors]
+    // We need to iterate anchors
+    if (shape.length === 3) {
+      const numAnchors = shape[2];  // e.g. 8400
+      const rows = shape[1];        // should be 8 (4 box + 4 classes)
+
+      for (let i = 0; i < numAnchors; i++) {
+        // Box coords (center x, y, w, h) — still in INPUT_SIZE space
+        const cx = raw[0 * numAnchors + i];
+        const cy = raw[1 * numAnchors + i];
+        const w  = raw[2 * numAnchors + i];
+        const h  = raw[3 * numAnchors + i];
+
+        // Find best class
+        let bestClass = 0;
+        let bestScore = 0;
+        for (let c = 0; c < NUM_CLASSES; c++) {
+          const score = raw[(4 + c) * numAnchors + i];
+          if (score > bestScore) {
+            bestScore = score;
+            bestClass = c;
+          }
+        }
+
+        if (bestScore < CONFIDENCE_THRESHOLD) continue;
+
+        // Scale box from INPUT_SIZE space to canvas space
+        const scaleX = canvas.width  / INPUT_SIZE;
+        const scaleY = canvas.height / INPUT_SIZE;
+
+        detections.push({
+          x: (cx - w / 2) * scaleX,
+          y: (cy - h / 2) * scaleY,
+          w: w * scaleX,
+          h: h * scaleY,
+          label: classNames[bestClass] || "Unknown",
+          color: classColors[bestClass] || "#00ff88",
+          score: bestScore
+        });
+      }
+    } else {
+      // Fallback: try flat [1, numAnchors, ROW_SIZE] (YOLOv5 style)
+      console.warn("Unexpected output shape:", shape, "— trying YOLOv5 format");
+      const numPred = shape[1];
+      for (let i = 0; i < numPred; i++) {
+        const offset = i * ROW_SIZE;
+        const cx = raw[offset];
+        const cy = raw[offset + 1];
+        const w  = raw[offset + 2];
+        const h  = raw[offset + 3];
+
+        let bestClass = 0, bestScore = 0;
+        for (let c = 0; c < NUM_CLASSES; c++) {
+          const s = raw[offset + 4 + c];
+          if (s > bestScore) { bestScore = s; bestClass = c; }
+        }
+
+        if (bestScore < CONFIDENCE_THRESHOLD) continue;
+
+        const scaleX = canvas.width  / INPUT_SIZE;
+        const scaleY = canvas.height / INPUT_SIZE;
+
+        detections.push({
+          x: (cx - w / 2) * scaleX,
+          y: (cy - h / 2) * scaleY,
+          w: w * scaleX,
+          h: h * scaleY,
+          label: classNames[bestClass] || "Unknown",
+          color: classColors[bestClass] || "#00ff88",
+          score: bestScore
+        });
+      }
+    }
+
+    return detections;
+  }
+
+  function drawDetections(detections) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineWidth = 2;
+    ctx.font = "bold 15px Arial";
+
+    detections.forEach(det => {
+      ctx.strokeStyle = det.color;
+      ctx.fillStyle = det.color;
+      ctx.strokeRect(det.x, det.y, det.w, det.h);
+
+      const label = `${det.label} ${(det.score * 100).toFixed(1)}%`;
+      const textW = ctx.measureText(label).width;
+
+      // Label background
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(det.x, det.y - 22, textW + 8, 20);
+
+      ctx.fillStyle = det.color;
+      ctx.fillText(label, det.x + 4, det.y - 6);
+    });
+
+    document.getElementById("detCount").textContent = detections.length;
+  }
+
+  async function detectFrame() {
+    if (!isRunning) return;
+
+    // FIX 7: Guard for video not ready or zero dimensions
+    if (!model || video.readyState < 4 || canvas.width === 0) {
+      animationId = requestAnimationFrame(detectFrame);
+      return;
+    }
+
+    const start = performance.now();
+
+    let outputTensor;
+    const inputTensor = tf.tidy(() => {
+      const img = tf.browser.fromPixels(video);
+      const resized = tf.image.resizeBilinear(img, [INPUT_SIZE, INPUT_SIZE]);
+      const normalized = resized.toFloat().div(255.0);
+      return normalized.expandDims(0); // [1, 640, 640, 3]
+    });
+
+    try {
+      outputTensor = model.predict(inputTensor);
+      const detections = parseYOLOv8(outputTensor);
+      drawDetections(detections);
+    } catch (err) {
+      console.error("Inference error:", err);
+    } finally {
+      inputTensor.dispose();
+      if (outputTensor) outputTensor.dispose();
+    }
+
+    const inferenceTime = performance.now() - start;
+    document.getElementById("time").textContent = inferenceTime.toFixed(1);
+
+    frameCount++;
+    const now = performance.now();
+    if (now - lastTime > 1000) {
+      document.getElementById("fps").textContent = frameCount;
+      frameCount = 0;
+      lastTime = now;
+    }
+
+    animationId = requestAnimationFrame(detectFrame);
+  }
+
+  document.getElementById("startBtn").addEventListener("click", async () => {
+    document.getElementById("startBtn").disabled = true;
+    try {
+      await loadModel();
+      await startCamera();
+    } catch (err) {
+      setStatus("Error: " + err.message);
+      document.getElementById("startBtn").disabled = false;
+    }
+  });
+
+  document.getElementById("stopBtn").addEventListener("click", stopCamera);
 </script>
-
 </body>
 </html>

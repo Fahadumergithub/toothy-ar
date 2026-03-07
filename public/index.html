@@ -4,18 +4,17 @@
 <meta charset="UTF-8">
 <title>Toothy AR — Deep Diagnostic</title>
 <style>
-  body { background:#0a0a0f; color:#e8e8f0; font-family:'Space Mono',monospace; padding:20px; font-size:13px; }
-  pre  { background:#13131a; border:1px solid #1e1e2e; padding:14px; border-radius:6px; white-space:pre-wrap; word-break:break-all; margin:6px 0; }
-  h3   { color:#00e5ff; margin:18px 0 6px; }
+  body { background:#0a0a0f; color:#e8e8f0; font-family:'Space Mono',monospace; padding:20px; font-size:12px; }
+  pre  { background:#13131a; border:1px solid #1e1e2e; padding:12px; border-radius:6px; white-space:pre-wrap; word-break:break-all; margin:4px 0; line-height:1.6; }
+  h3   { color:#00e5ff; margin:18px 0 6px; font-size:13px; }
   .ok  { color:#51cf66; } .warn { color:#ffd43b; } .err { color:#ff3d71; }
   button { background:#00e5ff; color:#000; border:none; padding:12px 28px; border-radius:4px;
-           font-family:'Space Mono',monospace; font-weight:700; cursor:pointer; margin:6px 4px; letter-spacing:1px; }
+           font-family:'Space Mono',monospace; font-weight:700; cursor:pointer; margin:6px 4px; }
 </style>
 </head>
 <body>
-<h2>🦷 Toothy AR — Deep Model Diagnostic</h2>
-<p style="color:#5a5a7a">This will tell us exactly what predict() returns and where the data lives.</p>
-<button onclick="runDiag()">▶ Run Diagnostic</button>
+<h2>🦷 Deep Diagnostic</h2>
+<button onclick="runDiag()">▶ Run Full Diagnostic</button>
 <div id="out"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
@@ -23,99 +22,114 @@
 <script>
 const MODEL_URL = 'https://huggingface.co/fahadumer/toothy-ar/resolve/main/best_float32.tflite';
 
-function log(msg, cls='') {
-  document.getElementById('out').innerHTML += `<pre class="${cls}">${msg}</pre>`;
+const el = document.getElementById('out');
+function log(msg, cls='') { el.innerHTML += `<pre class="${cls}">${msg}</pre>`; }
+function h(t) { el.innerHTML += `<h3>${t}</h3>`; }
+
+function stats(arr) {
+  const a = Array.from(arr);
+  const nz = a.filter(v => v !== 0).length;
+  const mn = Math.min(...a).toFixed(5);
+  const mx = Math.max(...a).toFixed(5);
+  const mean = (a.reduce((s,v)=>s+v,0)/a.length).toFixed(5);
+  return `total=${a.length}  non-zero=${nz}  min=${mn}  max=${mx}  mean=${mean}`;
 }
-function h(t) {
-  document.getElementById('out').innerHTML += `<h3>${t}</h3>`;
+
+async function extractTensor(raw) {
+  // Handle all possible return types from tfjs-tflite predict()
+  if (raw instanceof tf.Tensor) return raw;
+  if (Array.isArray(raw)) return raw[0];
+  if (typeof raw === 'object') {
+    const keys = Object.keys(raw);
+    log('⚠️  predict() returned NAMED MAP with keys: ' + JSON.stringify(keys), 'warn');
+    return raw[keys[0]];
+  }
+  return null;
 }
 
 async function runDiag() {
-  document.getElementById('out').innerHTML = '';
+  el.innerHTML = '';
   tflite.setWasmPath('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/');
   await tf.ready();
   log('TF backend: ' + tf.getBackend(), 'ok');
 
-  h('Step 1 — Load model');
+  h('1 — Load model');
   let m;
   try {
     m = await tflite.loadTFLiteModel(MODEL_URL);
     log('✅ Model loaded', 'ok');
-  } catch(e) { log('❌ LOAD FAILED: ' + e, 'err'); return; }
+  } catch(e) { log('❌ ' + e, 'err'); return; }
 
-  h('Step 2 — Inspect raw predict() return value');
-  const inp = tf.randomUniform([1, 640, 640, 3], 0, 1);
-  const raw = m.predict(inp);
+  // ── TEST A: dataSync() (current approach — may be broken) ──
+  h('2 — Test A: dataSync() on random input');
+  const inp_a = tf.randomUniform([1,640,640,3], 0, 1);
+  const raw_a = m.predict(inp_a);
+  const t_a   = await extractTensor(raw_a);
+  log('Shape: ' + JSON.stringify(t_a.shape) + '  dtype: ' + t_a.dtype);
+  const sync_a = t_a.dataSync();
+  log('dataSync() → ' + stats(sync_a));
+  log('First 10 values: ' + Array.from(sync_a).slice(0,10).map(v=>v.toFixed(4)).join(', '));
 
-  log('typeof result: ' + typeof raw);
-  log('Is Array: ' + Array.isArray(raw));
-  log('Is Tensor: ' + (raw instanceof tf.Tensor));
+  // ── TEST B: async data() — the correct async method ──
+  h('3 — Test B: await tensor.data() [ASYNC — more reliable with WASM]');
+  const inp_b = tf.randomUniform([1,640,640,3], 0, 1);
+  const raw_b = m.predict(inp_b);
+  const t_b   = await extractTensor(raw_b);
+  const async_b = await t_b.data(); // <-- async version, waits for WASM memory sync
+  log('data() [async] → ' + stats(async_b));
+  log('First 10 values: ' + Array.from(async_b).slice(0,10).map(v=>v.toFixed(4)).join(', '));
 
-  // Check if it's a named map
-  if (typeof raw === 'object' && !Array.isArray(raw) && !(raw instanceof tf.Tensor)) {
-    const keys = Object.keys(raw);
-    log('⚠️  Result is a NAMED TENSOR MAP with keys: ' + JSON.stringify(keys), 'warn');
-    log('This means model.predict() returns {outputName: Tensor} not a plain Tensor', 'warn');
-    log('You must access raw["' + keys[0] + '"] to get the actual tensor', 'warn');
-
-    h('Step 3 — Inspect each named output');
-    for (const k of keys) {
-      const t = raw[k];
-      log(`Key "${k}":  shape=${JSON.stringify(t.shape)}  dtype=${t.dtype}`);
-      const d = t.dataSync();
-      const nz = Array.from(d).filter(v => v !== 0).length;
-      const mn = Math.min(...d).toFixed(5);
-      const mx = Math.max(...d).toFixed(5);
-      const mean = (Array.from(d).reduce((a,b)=>a+b,0)/d.length).toFixed(5);
-      log(`  total values=${d.length}  non-zero=${nz}  min=${mn}  max=${mx}  mean=${mean}`);
-
-      if (t.shape.length === 3) {
-        const [B, R, C] = t.shape;
-        log(`  → YOLOv8 layout [batch=${B}, rows=${R}, anchors=${C}]`);
-        log(`  → rows 0-3 = box coords, rows 4-${R-1} = ${R-4} class scores`);
-        log('  → Row-by-row summary:');
-        for (let r = 0; r < R; r++) {
-          const rowVals = [];
-          for (let c = 0; c < C; c++) rowVals.push(d[r*C+c]);
-          const rMn = Math.min(...rowVals).toFixed(4);
-          const rMx = Math.max(...rowVals).toFixed(4);
-          const rNZ = rowVals.filter(v=>v!==0).length;
-          const sample = rowVals.slice(0,5).map(v=>v.toFixed(3)).join(', ');
-          log(`    row[${String(r).padStart(2)}]: min=${rMn} max=${rMx} non-zero=${rNZ}/${C}  sample=[${sample}]`);
-        }
-      }
-      t.dispose();
+  if (t_b.shape.length === 3) {
+    const [B, R, C] = t_b.shape;
+    h('4 — Row-by-row breakdown (async data)');
+    log(`Layout: [batch=${B}, rows=${R}, anchors=${C}]`);
+    for (let r = 0; r < R; r++) {
+      const row = [];
+      for (let c = 0; c < C; c++) row.push(async_b[r*C+c]);
+      const nz = row.filter(v=>v!==0).length;
+      const mn = Math.min(...row).toFixed(4);
+      const mx = Math.max(...row).toFixed(4);
+      const sample = row.slice(0,6).map(v=>v.toFixed(4)).join(', ');
+      const label = r < 4 ? `box[${['cx','cy','w','h'][r]}]` : `class[${r-4}]`;
+      log(`  row ${String(r).padStart(2)} (${label}): min=${mn} max=${mx} non-zero=${nz}  sample=[${sample}]`);
     }
-  } else {
-    // It's a plain tensor or array
-    const t = Array.isArray(raw) ? raw[0] : raw;
-    log('✅ Result is a plain Tensor (or array[0])', 'ok');
-    log(`shape=${JSON.stringify(t.shape)}  dtype=${t.dtype}`);
-    const d = t.dataSync();
-    const nz = Array.from(d).filter(v => v !== 0).length;
-    const mn = Math.min(...d).toFixed(5);
-    const mx = Math.max(...d).toFixed(5);
-    log(`total=${d.length}  non-zero=${nz}  min=${mn}  max=${mx}`);
-
-    if (t.shape.length === 3) {
-      const [B, R, C] = t.shape;
-      log(`YOLOv8 layout: [${B}, ${R}, ${C}]`);
-      for (let r = 0; r < R; r++) {
-        const rowVals = [];
-        for (let c = 0; c < C; c++) rowVals.push(d[r*C+c]);
-        const rMn = Math.min(...rowVals).toFixed(4);
-        const rMx = Math.max(...rowVals).toFixed(4);
-        const rNZ = rowVals.filter(v=>v!==0).length;
-        log(`  row[${String(r).padStart(2)}]: min=${rMn} max=${rMx} non-zero=${rNZ}/${C}`);
-      }
-    }
-    if (Array.isArray(raw)) raw.forEach(t=>t.dispose()); else raw.dispose();
   }
 
-  inp.dispose();
+  // ── TEST C: uint8 input (no normalization) ──
+  h('5 — Test C: uint8-range input [0–255] — no /255 normalization');
+  const inp_c = tf.randomUniform([1,640,640,3], 0, 255);
+  const raw_c = m.predict(inp_c);
+  const t_c   = await extractTensor(raw_c);
+  const async_c = await t_c.data();
+  log('data() [async] → ' + stats(async_c));
+  if (t_c.shape.length === 3) {
+    const [B,R,C] = t_c.shape;
+    for (let r = 0; r < R; r++) {
+      const row = [];
+      for (let c = 0; c < C; c++) row.push(async_c[r*C+c]);
+      const nz = row.filter(v=>v!==0).length;
+      log(`  row ${String(r).padStart(2)}: min=${Math.min(...row).toFixed(4)} max=${Math.max(...row).toFixed(4)} non-zero=${nz}`);
+    }
+  }
 
-  h('Step 4 — Conclusion');
-  log('Paste the output above back to Claude to get a targeted fix ✅', 'ok');
+  // ── TEST D: int8 / quantized input check ──
+  h('6 — Test D: check model input dtype');
+  try {
+    // Try passing int32 tensor
+    const inp_d = tf.randomUniform([1,640,640,3], 0, 255).toInt();
+    const raw_d = m.predict(inp_d);
+    const t_d   = await extractTensor(raw_d);
+    const async_d = await t_d.data();
+    log('int input → ' + stats(async_d));
+    inp_d.dispose(); if(Array.isArray(raw_d)) raw_d.forEach(t=>t.dispose()); else raw_d.dispose();
+  } catch(e) { log('int input → ERROR: ' + e.message, 'warn'); }
+
+  // ── cleanup ──
+  inp_a.dispose(); if(Array.isArray(raw_a)) raw_a.forEach(t=>t.dispose()); else { try{t_a.dispose()}catch(e){} }
+  inp_b.dispose(); if(Array.isArray(raw_b)) raw_b.forEach(t=>t.dispose()); else { try{t_b.dispose()}catch(e){} }
+  inp_c.dispose(); if(Array.isArray(raw_c)) raw_c.forEach(t=>t.dispose()); else { try{t_c.dispose()}catch(e){} }
+
+  h('✅ Done — paste all output above to Claude');
 }
 </script>
 </body>

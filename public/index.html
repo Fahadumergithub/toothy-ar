@@ -763,113 +763,92 @@ async function runLoop() {
 }
 
 // ─── CAPTURE FRAME ───
-// Pipeline:
-//  1. Grab raw unmirrored sensor frame
-//  2. Run inference on raw frame (model always sees unmirrored image)
-//  3. Build a DISPLAY canvas matching what user saw:
-//     - front camera → mirror horizontally (match CSS scaleX(-1))
-//     - back camera  → no mirror
-//  4. Mirror box X coords to match display orientation
-//  5. Draw boxes on display canvas → perfect alignment
 async function captureFrame() {
   if (!videoEl || videoEl.readyState < 2) { showToast('Camera not ready'); return; }
 
-  // Flash effect
+  // Flash
   const flash = document.getElementById('flash');
   flash.classList.add('on');
-  setTimeout(() => flash.classList.remove('on'), 150);
+  setTimeout(() => flash.classList.remove('on'), 120);
 
   const VW = videoEl.videoWidth, VH = videoEl.videoHeight;
   if (!VW || !VH) { showToast('No video frame'); return; }
 
-  // Step 1: Raw canvas — unmirrored sensor data, used for inference
-  const rawCanvas = document.createElement('canvas');
-  rawCanvas.width = VW; rawCanvas.height = VH;
-  const rawCtx = rawCanvas.getContext('2d');
-  rawCtx.drawImage(videoEl, 0, 0, VW, VH);
+  // 1. Freeze exactly what the user sees (respects CSS mirror via ctx transform)
+  const snapCanvas = document.createElement('canvas');
+  snapCanvas.width  = VW;
+  snapCanvas.height = VH;
+  const snapCtx = snapCanvas.getContext('2d');
 
-  // Step 2: Run inference on raw unmirrored frame
+  // Mirror the snapshot if front camera, so it matches the live view
+  if (useFrontCamera) {
+    snapCtx.translate(VW, 0);
+    snapCtx.scale(-1, 1);
+  }
+  snapCtx.drawImage(videoEl, 0, 0, VW, VH);
+  snapCtx.setTransform(1,0,0,1,0,0); // reset transform
+
+  // 2. Run inference — always on unmirrored pixels (raw sensor)
+  //    so grab a separate unmirrored canvas for the model input
+  const inferCanvas = document.createElement('canvas');
+  inferCanvas.width  = VW;
+  inferCanvas.height = VH;
+  inferCanvas.getContext('2d').drawImage(videoEl, 0, 0, VW, VH);
+
   let dets = [];
   if (model) {
-    showToast('Analysing…', 1200);
     try {
       const inp = tf.tidy(() =>
-        tf.browser.fromPixels(rawCanvas)
+        tf.browser.fromPixels(inferCanvas)
           .resizeBilinear([INPUT_SIZE, INPUT_SIZE])
           .div(255.0)
           .expandDims(0)
       );
       const out  = model.predict(inp);
       const outT = Array.isArray(out) ? out[0] : out;
+      // Raw boxes in unmirrored pixel space
       dets = parseOutput(outT, VW, VH);
       inp.dispose();
       if (Array.isArray(out)) out.forEach(t=>t.dispose()); else out.dispose();
     } catch(e) { console.error('Capture inference:', e); }
-  } else {
-    dets = lastDets;
   }
 
-  // Step 3: Build display canvas matching what user saw
-  // Front camera is CSS-mirrored, so mirror the canvas pixels too
-  const isMirrored = useFrontCamera;
-  const displayCanvas = document.createElement('canvas');
-  displayCanvas.width  = VW;
-  displayCanvas.height = VH;
-  const dCtx = displayCanvas.getContext('2d');
-
-  if (isMirrored) {
-    dCtx.save();
-    dCtx.translate(VW, 0);
-    dCtx.scale(-1, 1);
-    dCtx.drawImage(rawCanvas, 0, 0, VW, VH);
-    dCtx.restore();
-  } else {
-    dCtx.drawImage(rawCanvas, 0, 0, VW, VH);
-  }
-
-  // Step 4: Mirror box X coords if front camera
-  // Inference ran on unmirrored pixels. To align with mirrored display:
-  // newX1 = VW - oldX2,  newX2 = VW - oldX1
-  const displayDets = isMirrored
+  // 3. If front camera, flip box X coords to match the mirrored snapshot
+  const finalDets = useFrontCamera
     ? dets.map(d => ({ ...d, x1: VW - d.x2, x2: VW - d.x1 }))
     : dets;
 
-  // Step 5: Draw boxes on display canvas
-  drawDetections(displayDets, displayCanvas, dCtx, VW, VH);
+  // 4. Draw boxes onto the frozen snapshot
+  drawDetections(finalDets, snapCanvas, snapCtx, VW, VH);
 
   // Watermark
-  dCtx.save();
-  dCtx.font = `bold ${Math.max(12, Math.round(VW*0.022))}px Outfit,sans-serif`;
-  dCtx.fillStyle = 'rgba(255,255,255,0.65)';
-  dCtx.fillText('MeDenTec AR v1.0', 10, VH - 10);
-  dCtx.restore();
+  snapCtx.font = `bold ${Math.max(11, Math.round(VW * 0.02))}px Outfit,sans-serif`;
+  snapCtx.fillStyle = 'rgba(255,255,255,0.55)';
+  snapCtx.fillText('MeDenTec AR v1.0', 10, VH - 10);
 
-  // Store display canvas for saving
-  capturedImageData = displayCanvas;
+  // 5. Save reference for download
+  capturedImageData = snapCanvas;
 
-  // Show in modal
+  // 6. Show frozen frame in modal
   const capCanvas = document.getElementById('capture-canvas');
   capCanvas.width  = VW;
   capCanvas.height = VH;
-  capCanvas.getContext('2d').drawImage(displayCanvas, 0, 0);
+  capCanvas.getContext('2d').drawImage(snapCanvas, 0, 0);
 
-  // Populate modal stats
-  document.getElementById('m-count').textContent = dets.length;
-  document.getElementById('m-conf').textContent  = dets.length
-    ? (dets.reduce((s,d)=>s+d.score,0)/dets.length*100).toFixed(0)+'%' : '—';
-
-  const topCls = dets.length
-    ? CLASSES[dets.sort((a,b)=>b.score-a.score)[0].classId].name
-    : '—';
-  document.getElementById('m-top').textContent = topCls;
+  // Stats
+  document.getElementById('m-count').textContent = finalDets.length;
+  document.getElementById('m-conf').textContent  = finalDets.length
+    ? (finalDets.reduce((s,d)=>s+d.score,0)/finalDets.length*100).toFixed(0)+'%' : '—';
+  const sorted = [...finalDets].sort((a,b)=>b.score-a.score);
+  document.getElementById('m-top').textContent = sorted.length ? CLASSES[sorted[0].classId].name : '—';
 
   // Detection list
   const list = document.getElementById('modal-det-list');
   list.innerHTML = '';
-  if (dets.length === 0) {
-    list.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);padding:12px 0">No detections above threshold</div>';
+  if (sorted.length === 0) {
+    list.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);padding:10px 0">No detections above threshold</div>';
   } else {
-    [...dets].sort((a,b)=>b.score-a.score).forEach(d => {
+    sorted.forEach(d => {
       const cls = CLASSES[d.classId];
       const row = document.createElement('div');
       row.className = 'det-row';
@@ -878,10 +857,7 @@ async function captureFrame() {
           <div class="det-dot" style="background:${cls.color}"></div>
           <div class="det-name">${cls.name}</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-          <div class="det-conf">${(d.score*100).toFixed(1)}%</div>
-          <div class="det-box-info">${Math.round(d.x1)},${Math.round(d.y1)} → ${Math.round(d.x2)},${Math.round(d.y2)}</div>
-        </div>`;
+        <div class="det-conf">${(d.score*100).toFixed(1)}%</div>`;
       list.appendChild(row);
     });
   }
@@ -889,6 +865,7 @@ async function captureFrame() {
   document.getElementById('save-success').classList.remove('show');
   document.getElementById('capture-modal').classList.add('active');
 }
+
 
 function closeModal() {
   document.getElementById('capture-modal').classList.remove('active');

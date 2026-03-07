@@ -3,81 +3,325 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Toothy AR — Dental Detection</title>
+<title>MeDenTec AR — v1</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;600;700;800&display=swap');
+
   :root {
-    --bg: #0a0a0f; --surface: #13131a; --border: #1e1e2e;
-    --accent: #00e5ff; --accent2: #ff3d71; --text: #e8e8f0; --muted: #5a5a7a;
+    --bg: #07090f;
+    --surface: #0e1118;
+    --surface2: #151b27;
+    --border: #1c2333;
+    --navy: #1a3a6b;
+    --blue: #5baef5;
+    --purple: #7b2fa0;
+    --accent: #5baef5;
+    --accent2: #7b2fa0;
+    --text: #e2e8f8;
+    --muted: #4a5578;
+    --white: #ffffff;
   }
+
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; overflow:hidden; touch-action:none; }
+  html, body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; overflow:hidden; touch-action:none; }
 
-  /* SPLASH */
-  #splash { position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity 0.6s ease; }
+  /* ─── SPLASH ─── */
+  #splash {
+    position:fixed; inset:0; z-index:200;
+    background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:opacity 0.7s ease;
+    background-image: radial-gradient(ellipse at 30% 50%, rgba(26,58,107,0.25) 0%, transparent 60%),
+                      radial-gradient(ellipse at 70% 50%, rgba(123,47,160,0.15) 0%, transparent 60%);
+  }
   #splash.hidden { opacity:0; pointer-events:none; }
-  .splash-logo { font-size:clamp(52px,16vw,96px); line-height:1; margin-bottom:8px; animation:pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-  .splash-title { font-size:clamp(28px,8vw,48px); font-weight:800; letter-spacing:-1px; margin-bottom:6px; }
-  .splash-title span { color:var(--accent); }
-  .splash-sub { font-family:'Space Mono',monospace; font-size:clamp(10px,3vw,13px); color:var(--muted); text-transform:uppercase; letter-spacing:3px; margin-bottom:48px; }
-  .progress-wrap { width:min(320px,80vw); margin-bottom:16px; }
-  .progress-label { font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:8px; display:flex; justify-content:space-between; }
-  .progress-bar { height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
-  .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),#7c3aed); border-radius:2px; width:0%; transition:width 0.4s ease; }
-  #splash-status { font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); text-align:center; }
-  .start-btn { margin-top:32px; padding:16px 48px; background:var(--accent); color:#000; border:none; border-radius:4px; font-family:'Space Mono',monospace; font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase; cursor:pointer; display:none; transition:transform 0.15s ease,box-shadow 0.15s ease; }
-  .start-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,229,255,0.3); }
 
-  /* APP */
+  .splash-logo-wrap {
+    position:relative;
+    margin-bottom:32px;
+  }
+  .splash-logo-wrap img {
+    width:clamp(120px,30vw,180px);
+    filter:drop-shadow(0 0 32px rgba(91,174,245,0.3));
+    animation:logoFloat 3s ease-in-out infinite;
+  }
+  @keyframes logoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+  .splash-product {
+    font-family:'DM Mono',monospace;
+    font-size:clamp(9px,2.5vw,11px);
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:4px;
+    margin-bottom:6px;
+    text-align:center;
+  }
+  .splash-title {
+    font-size:clamp(22px,6vw,38px);
+    font-weight:800;
+    letter-spacing:-0.5px;
+    margin-bottom:4px;
+    text-align:center;
+  }
+  .splash-title .med { color:var(--navy); color:#4a8fd4; }
+  .splash-title .den { color:var(--blue); }
+  .splash-title .tec { color:var(--purple); }
+  .splash-version {
+    font-family:'DM Mono',monospace;
+    font-size:10px;
+    color:var(--muted);
+    letter-spacing:2px;
+    margin-bottom:48px;
+    text-align:center;
+  }
+
+  .progress-wrap { width:min(280px,75vw); margin-bottom:12px; }
+  .progress-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); margin-bottom:8px; display:flex; justify-content:space-between; }
+  .progress-bar { height:2px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--blue),var(--purple)); border-radius:2px; width:0%; transition:width 0.4s ease; }
+  #splash-status { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); text-align:center; }
+
+  .start-btn {
+    margin-top:28px; padding:14px 44px;
+    background:linear-gradient(135deg,var(--navy),var(--purple));
+    color:#fff; border:none; border-radius:6px;
+    font-family:'Outfit',sans-serif; font-size:13px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase;
+    cursor:pointer; display:none;
+    box-shadow:0 8px 32px rgba(91,174,245,0.2);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .start-btn:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(91,174,245,0.35); }
+
+  /* ─── APP ─── */
   #app { position:fixed; inset:0; display:none; flex-direction:column; }
   #app.active { display:flex; }
+
   #canvas-container { position:relative; flex:1; overflow:hidden; background:#000; }
   #video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
   #overlay { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-  .scan-line { position:absolute; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.6; animation:scan 3s linear infinite; pointer-events:none; }
+
+  /* scan line */
+  .scan-line { position:absolute; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--blue),transparent); opacity:0.4; animation:scan 4s linear infinite; pointer-events:none; }
   @keyframes scan { 0%{top:0%} 100%{top:100%} }
-  .frame-corner { position:absolute; width:28px; height:28px; border-color:var(--accent); border-style:solid; opacity:0.7; }
-  .frame-corner.tl { top:16px; left:16px; border-width:2px 0 0 2px; }
-  .frame-corner.tr { top:16px; right:16px; border-width:2px 2px 0 0; }
-  .frame-corner.bl { bottom:16px; left:16px; border-width:0 0 2px 2px; }
-  .frame-corner.br { bottom:16px; right:16px; border-width:0 2px 2px 0; }
-  #statusbar { position:absolute; top:0; left:0; right:0; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; background:linear-gradient(to bottom,rgba(10,10,15,0.8),transparent); pointer-events:none; z-index:10; }
-  .brand { font-size:14px; font-weight:800; letter-spacing:-0.5px; }
-  .brand span { color:var(--accent); }
-  .live-pill { display:flex; align-items:center; gap:6px; background:rgba(255,61,113,0.15); border:1px solid rgba(255,61,113,0.3); border-radius:20px; padding:4px 10px; font-family:'Space Mono',monospace; font-size:10px; color:var(--accent2); letter-spacing:1px; }
-  .live-dot { width:6px; height:6px; border-radius:50%; background:var(--accent2); animation:blink 1s ease-in-out infinite; }
+
+  /* frame corners */
+  .frame-corner { position:absolute; width:24px; height:24px; border-color:rgba(91,174,245,0.6); border-style:solid; }
+  .frame-corner.tl { top:14px; left:14px; border-width:2px 0 0 2px; }
+  .frame-corner.tr { top:14px; right:14px; border-width:2px 2px 0 0; }
+  .frame-corner.bl { bottom:80px; left:14px; border-width:0 0 2px 2px; }
+  .frame-corner.br { bottom:80px; right:14px; border-width:0 2px 2px 0; }
+
+  /* top bar */
+  #topbar {
+    position:absolute; top:0; left:0; right:0; z-index:10;
+    padding:10px 14px 16px;
+    background:linear-gradient(to bottom, rgba(7,9,15,0.85) 60%, transparent);
+    display:flex; align-items:center; justify-content:space-between;
+    pointer-events:none;
+  }
+  .brand-row { display:flex; align-items:center; gap:10px; }
+  .brand-logo { height:28px; filter:brightness(1.1); }
+  .brand-text { display:flex; flex-direction:column; line-height:1.1; }
+  .brand-name { font-size:13px; font-weight:700; letter-spacing:0.3px; }
+  .brand-name .med { color:#4a8fd4; }
+  .brand-name .den { color:var(--blue); }
+  .brand-name .tec { color:#b06ed4; }
+  .brand-sub { font-family:'DM Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+
+  .live-pill { display:flex; align-items:center; gap:5px; background:rgba(123,47,160,0.2); border:1px solid rgba(123,47,160,0.4); border-radius:20px; padding:4px 10px; font-family:'DM Mono',monospace; font-size:9px; color:#b06ed4; letter-spacing:1px; }
+  .live-dot { width:5px; height:5px; border-radius:50%; background:#b06ed4; animation:blink 1.2s ease-in-out infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-  #cam-toggle { position:absolute; top:12px; right:16px; width:40px; height:40px; background:rgba(30,30,46,0.9); border:1px solid var(--border); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; z-index:15; transition:background 0.2s; pointer-events:all; }
+
+  /* cam toggle */
+  #cam-toggle {
+    position:absolute; top:10px; right:14px; z-index:15;
+    width:38px; height:38px;
+    background:rgba(14,17,24,0.85); border:1px solid var(--border);
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:16px; pointer-events:all;
+    transition:background 0.2s;
+  }
   #cam-toggle:active { background:var(--border); }
 
-  /* HUD */
-  #hud { background:rgba(10,10,15,0.92); backdrop-filter:blur(12px); border-top:1px solid var(--border); padding:12px 16px 20px; flex-shrink:0; }
-  .hud-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .hud-title { font-size:11px; font-family:'Space Mono',monospace; color:var(--muted); text-transform:uppercase; letter-spacing:2px; }
-  .fps-badge { font-family:'Space Mono',monospace; font-size:11px; color:var(--accent); background:rgba(0,229,255,0.1); border:1px solid rgba(0,229,255,0.2); padding:2px 8px; border-radius:3px; }
-  .hud-stats { display:flex; gap:16px; align-items:flex-end; margin-bottom:10px; }
-  .stat-item { display:flex; flex-direction:column; }
-  .tooth-count { font-size:clamp(28px,8vw,40px); font-weight:800; color:var(--accent); line-height:1; margin-bottom:2px; }
-  .tooth-count-label { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:2px; }
-  .detection-grid { display:flex; gap:6px; flex-wrap:wrap; }
-  .det-chip { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:3px; border:1px solid; font-family:'Space Mono',monospace; font-size:10px; opacity:0.35; transition:opacity 0.2s,transform 0.2s; white-space:nowrap; }
-  .det-chip.active { opacity:1; transform:scale(1.05); }
-  .det-chip .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-  .threshold-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
-  .threshold-row label { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); white-space:nowrap; }
-  .threshold-row input[type=range] { flex:1; accent-color:var(--accent); height:3px; }
-  .threshold-val { font-family:'Space Mono',monospace; font-size:10px; color:var(--accent); min-width:32px; text-align:right; }
-  #toast { position:fixed; bottom:120px; left:50%; transform:translateX(-50%); background:var(--accent2); color:#fff; padding:10px 20px; border-radius:4px; font-family:'Space Mono',monospace; font-size:11px; z-index:200; opacity:0; transition:opacity 0.3s; pointer-events:none; max-width:90vw; text-align:center; }
+  /* ─── SHUTTER AREA ─── */
+  #shutter-bar {
+    position:absolute; bottom:0; left:0; right:0; z-index:12;
+    padding:12px 20px 16px;
+    background:linear-gradient(to top, rgba(7,9,15,0.9) 70%, transparent);
+    display:flex; align-items:center; justify-content:center; gap:24px;
+  }
+
+  #shutter-btn {
+    width:64px; height:64px; border-radius:50%;
+    background:white;
+    border:4px solid rgba(91,174,245,0.6);
+    box-shadow:0 0 0 2px rgba(91,174,245,0.2), 0 4px 20px rgba(0,0,0,0.5);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:transform 0.1s ease, box-shadow 0.1s ease;
+    position:relative; pointer-events:all;
+  }
+  #shutter-btn:active { transform:scale(0.92); }
+  #shutter-btn::after {
+    content:''; position:absolute;
+    width:50px; height:50px; border-radius:50%;
+    background:linear-gradient(135deg, #e0eeff, #fff);
+    box-shadow:inset 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .shutter-label {
+    font-family:'DM Mono',monospace; font-size:9px;
+    color:var(--muted); letter-spacing:1px; text-transform:uppercase;
+    text-align:center; margin-top:4px;
+  }
+  .shutter-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
+
+  /* ─── FLASH EFFECT ─── */
+  #flash {
+    position:absolute; inset:0; z-index:50;
+    background:white; opacity:0; pointer-events:none;
+    transition:opacity 0.05s ease;
+  }
+  #flash.on { opacity:0.85; }
+
+  /* ─── CAPTURE MODAL ─── */
+  #capture-modal {
+    position:fixed; inset:0; z-index:300;
+    background:rgba(7,9,15,0.96);
+    display:none; flex-direction:column;
+    align-items:center; justify-content:flex-start;
+    padding:0;
+    overflow-y:auto;
+  }
+  #capture-modal.active { display:flex; }
+
+  .modal-topbar {
+    width:100%; padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .modal-title { font-size:14px; font-weight:700; letter-spacing:0.3px; }
+  .modal-title span { color:var(--blue); }
+  .modal-close {
+    width:34px; height:34px; border-radius:50%;
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text); font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    line-height:1;
+  }
+
+  .modal-body { width:100%; padding:16px; display:flex; flex-direction:column; gap:14px; }
+
+  .capture-img-wrap { position:relative; width:100%; border-radius:8px; overflow:hidden; border:1px solid var(--border); }
+  #capture-canvas { width:100%; display:block; }
+
+  .modal-stats {
+    display:flex; gap:10px; flex-wrap:wrap;
+  }
+  .mstat {
+    flex:1; min-width:80px;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:6px; padding:10px 12px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .mstat-val { font-size:22px; font-weight:800; color:var(--blue); line-height:1; }
+  .mstat-label { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:1.5px; }
+
+  .det-list { display:flex; flex-direction:column; gap:6px; }
+  .det-list-title { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-bottom:2px; }
+  .det-row {
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:6px; padding:8px 12px;
+  }
+  .det-row-left { display:flex; align-items:center; gap:8px; }
+  .det-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .det-name { font-size:13px; font-weight:600; }
+  .det-conf { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); }
+  .det-box-info { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); }
+
+  .modal-actions { display:flex; gap:10px; padding-bottom:24px; }
+  .action-btn {
+    flex:1; padding:14px; border-radius:6px; border:none;
+    font-family:'Outfit',sans-serif; font-size:13px; font-weight:700;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform 0.1s ease;
+  }
+  .action-btn:active { transform:scale(0.97); }
+  .btn-save { background:linear-gradient(135deg,var(--navy),var(--purple)); color:#fff; }
+  .btn-discard { background:var(--surface2); border:1px solid var(--border); color:var(--muted); }
+
+  .save-success {
+    display:none; align-items:center; justify-content:center; gap:8px;
+    background:rgba(91,174,245,0.1); border:1px solid rgba(91,174,245,0.3);
+    border-radius:6px; padding:12px;
+    font-family:'DM Mono',monospace; font-size:11px; color:var(--blue);
+    text-align:center;
+  }
+  .save-success.show { display:flex; }
+
+  /* ─── HUD ─── */
+  #hud {
+    background:rgba(7,9,15,0.95);
+    backdrop-filter:blur(16px);
+    border-top:1px solid var(--border);
+    padding:10px 16px 18px;
+    flex-shrink:0;
+  }
+  .hud-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:8px; }
+  .hud-counts { display:flex; gap:14px; }
+  .hud-count-item { display:flex; flex-direction:column; }
+  .hud-count-val { font-size:clamp(24px,7vw,36px); font-weight:800; color:var(--blue); line-height:1; }
+  .hud-count-label { font-family:'DM Mono',monospace; font-size:8px; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-top:2px; }
+
+  .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+  .fps-pill { font-family:'DM Mono',monospace; font-size:10px; color:var(--blue); background:rgba(91,174,245,0.1); border:1px solid rgba(91,174,245,0.2); padding:2px 8px; border-radius:3px; }
+  .inf-time { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); }
+
+  .threshold-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .threshold-row label { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); white-space:nowrap; text-transform:uppercase; letter-spacing:1px; }
+  .threshold-row input[type=range] { flex:1; accent-color:var(--blue); height:2px; cursor:pointer; }
+  .threshold-val { font-family:'DM Mono',monospace; font-size:10px; color:var(--blue); min-width:30px; text-align:right; }
+
+  .chips-label { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-bottom:5px; }
+  .chips { display:flex; gap:5px; flex-wrap:wrap; }
+  .chip {
+    display:flex; align-items:center; gap:4px;
+    padding:3px 9px; border-radius:3px; border:1px solid;
+    font-family:'DM Mono',monospace; font-size:9px;
+    opacity:0.3; transition:opacity 0.2s, transform 0.15s; white-space:nowrap;
+    cursor:default;
+  }
+  .chip.active { opacity:1; transform:scale(1.04); }
+  .chip-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+
+  #toast {
+    position:fixed; bottom:130px; left:50%; transform:translateX(-50%);
+    background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    padding:10px 18px; border-radius:6px;
+    font-family:'DM Mono',monospace; font-size:10px;
+    z-index:400; opacity:0; transition:opacity 0.25s;
+    pointer-events:none; max-width:88vw; text-align:center;
+    box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  }
   #toast.show { opacity:1; }
 </style>
 </head>
 <body>
 
+<!-- ─── SPLASH ─── -->
 <div id="splash">
-  <div class="splash-logo">🦷</div>
-  <div class="splash-title">Toothy<span>AR</span></div>
-  <div class="splash-sub">YOLOv8 · Real-time · On-device</div>
+  <div class="splash-logo-wrap">
+    <img src="https://medentec.com/wp-content/uploads/2024/01/medentec_logo_final.jpg"
+         onerror="this.style.display='none'; document.getElementById('splash-emoji').style.display='block'"
+         alt="MeDenTec">
+    <span id="splash-emoji" style="display:none;font-size:72px;">🦷</span>
+  </div>
+  <div class="splash-product">MeDenTec · AI for Health</div>
+  <div class="splash-title">
+    <span class="med">Me</span><span class="den">Den</span><span class="tec">Tec</span> AR Project
+  </div>
+  <div class="splash-version">Version 1.0 &nbsp;·&nbsp; YOLOv8 On-Device</div>
   <div class="progress-wrap">
     <div class="progress-label">
       <span id="progress-text">Initialising…</span>
@@ -85,50 +329,114 @@
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
   </div>
-  <div id="splash-status">Loading TensorFlow.js runtime</div>
-  <button class="start-btn" id="start-btn" onclick="startAR()">START DEMO</button>
+  <div id="splash-status">Loading TensorFlow.js</div>
+  <button class="start-btn" id="start-btn" onclick="startAR()">Launch AR</button>
 </div>
 
+<!-- ─── APP ─── -->
 <div id="app">
   <div id="canvas-container">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="overlay"></canvas>
+    <div id="flash"></div>
     <div class="scan-line"></div>
     <div class="frame-corner tl"></div>
     <div class="frame-corner tr"></div>
     <div class="frame-corner bl"></div>
     <div class="frame-corner br"></div>
-    <div id="statusbar">
-      <div class="brand">Toothy<span>AR</span></div>
-      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
-    </div>
-    <button id="cam-toggle" onclick="toggleCamera()" title="Flip camera">🔄</button>
-  </div>
-  <div id="hud">
-    <div class="hud-top">
-      <div class="hud-stats">
-        <div class="stat-item">
-          <div class="tooth-count" id="tooth-count">0</div>
-          <div class="tooth-count-label">Teeth Found</div>
-        </div>
-        <div class="stat-item" style="margin-bottom:4px">
-          <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)">Avg Conf</div>
-          <div style="font-family:'Space Mono',monospace;font-size:14px;color:var(--text)" id="avg-conf">—</div>
+
+    <div id="topbar">
+      <div class="brand-row">
+        <!-- Inline logo as colored blocks matching MeDenTec brand -->
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+          <rect x="0" y="2"  width="14" height="6"  rx="1" fill="#1a3a6b"/>
+          <rect x="0" y="10" width="10" height="6"  rx="1" fill="#5baef5"/>
+          <rect x="0" y="18" width="14" height="6"  rx="1" fill="#7b2fa0"/>
+          <circle cx="20" cy="13" r="6" stroke="#5baef5" stroke-width="1.5" fill="none"/>
+          <path d="M17 13h6M20 10v6" stroke="#5baef5" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <div class="brand-text">
+          <div class="brand-name"><span class="med">Me</span><span class="den">Den</span><span class="tec">Tec</span> AR</div>
+          <div class="brand-sub">AI for Health · v1.0</div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <div class="fps-badge" id="fps-badge">0 FPS</div>
-        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted)" id="inf-time">— ms</div>
+      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    </div>
+
+    <button id="cam-toggle" onclick="toggleCamera()" title="Flip camera">🔄</button>
+
+    <!-- Shutter -->
+    <div id="shutter-bar">
+      <div class="shutter-wrap">
+        <button id="shutter-btn" onclick="captureFrame()" title="Capture for analysis"></button>
+        <div class="shutter-label">Capture</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-top">
+      <div class="hud-counts">
+        <div class="hud-count-item">
+          <div class="hud-count-val" id="tooth-count">0</div>
+          <div class="hud-count-label">Detected</div>
+        </div>
+        <div class="hud-count-item">
+          <div class="hud-count-val" id="avg-conf" style="font-size:clamp(18px,5vw,26px);color:var(--muted)">—</div>
+          <div class="hud-count-label">Avg Conf</div>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="fps-pill" id="fps-badge">0 FPS</div>
+        <div class="inf-time" id="inf-time">— ms</div>
       </div>
     </div>
     <div class="threshold-row">
-      <label>CONF</label>
+      <label>Conf</label>
       <input type="range" id="threshold-slider" min="5" max="90" value="25" oninput="updateThreshold(this.value)">
       <div class="threshold-val" id="threshold-val">0.25</div>
     </div>
-    <div style="height:8px"></div>
-    <div class="hud-title" style="margin-bottom:6px">DETECTIONS</div>
-    <div class="detection-grid" id="detection-grid"></div>
+    <div class="chips-label">Classes</div>
+    <div class="chips" id="chips"></div>
+  </div>
+</div>
+
+<!-- ─── CAPTURE MODAL ─── -->
+<div id="capture-modal">
+  <div class="modal-topbar">
+    <div class="modal-title"><span>MeDenTec</span> AR — Capture Analysis</div>
+    <button class="modal-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="modal-body">
+    <div class="capture-img-wrap">
+      <canvas id="capture-canvas"></canvas>
+    </div>
+    <div class="modal-stats">
+      <div class="mstat">
+        <div class="mstat-val" id="m-count">0</div>
+        <div class="mstat-label">Detected</div>
+      </div>
+      <div class="mstat">
+        <div class="mstat-val" id="m-conf">—</div>
+        <div class="mstat-label">Avg Conf</div>
+      </div>
+      <div class="mstat">
+        <div class="mstat-val" id="m-top">—</div>
+        <div class="mstat-label">Top Class</div>
+      </div>
+    </div>
+    <div>
+      <div class="det-list-title">All Detections</div>
+      <div class="det-list" id="modal-det-list"></div>
+    </div>
+    <div class="save-success" id="save-success">
+      ✅ &nbsp;Image saved to your device
+    </div>
+    <div class="modal-actions">
+      <button class="action-btn btn-save" onclick="saveCapture()">⬇ Save Image</button>
+      <button class="action-btn btn-discard" onclick="closeModal()">Discard</button>
+    </div>
   </div>
 </div>
 
@@ -137,31 +445,79 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/tf-tflite.min.js"></script>
 <script>
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // CONFIG — confirmed by Python diagnostic
-//
-// Output shape : [1, 11, 8400]
-// Box format   : normalised 0–1  (NOT pixels 0–640)
-// Class scores : already probabilities 0–1  (NO sigmoid needed)
-// Layout       : row 0=cx, 1=cy, 2=w, 3=h, 4-10=class scores
-// ═══════════════════════════════════════════════════════════════
+// Output [1,11,8400]: rows 0-3 = normalised box (0-1),
+// rows 4-10 = class probabilities (already 0-1, NO sigmoid)
+// ═══════════════════════════════════════════════════════════
 const MODEL_URL  = 'https://huggingface.co/fahadumer/toothy-ar/resolve/main/best_float32.tflite';
 const INPUT_SIZE = 640;
 const IOU_THRESH = 0.45;
 const MAX_DETS   = 50;
 
 const CLASSES = [
-  { name:'Premolar',        color:'#00e5ff' },
-  { name:'Canine',          color:'#ff6b6b' },
-  { name:'Central Incisor', color:'#51cf66' },
-  { name:'Lateral Incisor', color:'#ffd43b' },
-  { name:'Molar',           color:'#cc5de8' },
-  { name:'Missing',         color:'#ff3d71' },
-  { name:'Wisdom Tooth',    color:'#74c0fc' },
+  { name:'Premolar',        color:'#5baef5' },
+  { name:'Canine',          color:'#f87171' },
+  { name:'Central Incisor', color:'#4ade80' },
+  { name:'Lateral Incisor', color:'#facc15' },
+  { name:'Molar',           color:'#c084fc' },
+  { name:'Missing',         color:'#fb7185' },
+  { name:'Wisdom Tooth',    color:'#67e8f9' },
 ];
 const NUM_CLASSES = CLASSES.length;
 
-// ── STATE ──
+// ═══════════════════════════════════════════════════════════
+// TEMPORAL SMOOTHING
+// Keeps a rolling buffer of last N frames' detections.
+// Each frame, surviving detections are those whose IOU with
+// at least SMOOTH_MIN_HITS frames in the buffer exceeds
+// SMOOTH_IOU_THRESH. Box positions are averaged for stability.
+// ═══════════════════════════════════════════════════════════
+const SMOOTH_FRAMES   = 5;   // number of frames to buffer
+const SMOOTH_IOU_THRESH = 0.3; // min IOU to consider "same" box
+const SMOOTH_MIN_HITS   = 2;   // must appear in at least N frames
+let detHistory = [];           // array of arrays of dets
+
+function smoothDetections(newDets) {
+  // Add new frame
+  detHistory.push(newDets);
+  if (detHistory.length > SMOOTH_FRAMES) detHistory.shift();
+
+  if (detHistory.length < 2) return newDets;
+
+  // For each detection in the latest frame, find matching dets
+  // across all history frames and average the box positions
+  const smoothed = [];
+
+  for (const det of newDets) {
+    let sumX1=det.x1, sumY1=det.y1, sumX2=det.x2, sumY2=det.y2;
+    let hits = 1;
+
+    for (let f = 0; f < detHistory.length - 1; f++) {
+      for (const hdet of detHistory[f]) {
+        if (hdet.classId === det.classId && iouBox(det, hdet) > SMOOTH_IOU_THRESH) {
+          sumX1 += hdet.x1; sumY1 += hdet.y1;
+          sumX2 += hdet.x2; sumY2 += hdet.y2;
+          hits++;
+          break;
+        }
+      }
+    }
+
+    if (hits >= SMOOTH_MIN_HITS) {
+      smoothed.push({
+        ...det,
+        x1: sumX1 / hits,
+        y1: sumY1 / hits,
+        x2: sumX2 / hits,
+        y2: sumY2 / hits,
+      });
+    }
+  }
+  return smoothed.length > 0 ? smoothed : newDets;
+}
+
+// ─── STATE ───
 let model               = null;
 let videoEl             = null;
 let overlayCanvas       = null;
@@ -173,8 +529,10 @@ let stream              = null;
 let simMode             = false;
 let lastFpsTime         = performance.now();
 let frameCount          = 0;
+let lastDets            = [];
+let capturedImageData   = null; // stores the raw captured frame for saving
 
-// ── UI ──
+// ─── UI HELPERS ───
 function setProgress(pct, text, sub) {
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('progress-text').textContent = text;
@@ -187,173 +545,129 @@ function showToast(msg, dur=3000) {
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), dur);
 }
-function buildDetectionGrid() {
-  const grid = document.getElementById('detection-grid');
-  grid.innerHTML = '';
+function buildChips() {
+  const c = document.getElementById('chips');
+  c.innerHTML = '';
   CLASSES.forEach((cls, i) => {
     const chip = document.createElement('div');
-    chip.className = 'det-chip'; chip.id = 'chip-' + i;
-    chip.style.borderColor = cls.color + '44'; chip.style.color = cls.color;
-    chip.innerHTML = `<div class="dot" style="background:${cls.color}"></div><span>${cls.name}</span>`;
-    grid.appendChild(chip);
+    chip.className = 'chip'; chip.id = 'chip-'+i;
+    chip.style.borderColor = cls.color+'44'; chip.style.color = cls.color;
+    chip.innerHTML = `<div class="chip-dot" style="background:${cls.color}"></div>${cls.name}`;
+    c.appendChild(chip);
   });
 }
 function updateChips(dets) {
   const seen = new Set(dets.map(d => d.classId));
   CLASSES.forEach((_, i) => {
-    const c = document.getElementById('chip-' + i);
+    const c = document.getElementById('chip-'+i);
     if (c) c.classList.toggle('active', seen.has(i));
   });
 }
 
-// ── MODEL LOADING ──
+// ─── MODEL ───
 async function loadModel() {
-  if (typeof tflite === 'undefined') {
-    setProgress(100, 'ERROR', 'TFLite not loaded'); return null;
-  }
+  if (typeof tflite === 'undefined') { setProgress(100,'ERROR','TFLite unavailable'); return null; }
   tflite.setWasmPath('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/');
   try {
-    setProgress(15, 'Checking URL…', 'Probing Hugging Face');
-    const probe = await fetch(MODEL_URL, { method:'HEAD', mode:'cors' });
-    if (!probe.ok) { setProgress(100, 'ERROR', `HTTP ${probe.status}`); return null; }
-  } catch(e) { setProgress(100, 'CORS ERROR', e.message); return null; }
-
+    setProgress(15,'Checking model…','Probing Hugging Face endpoint');
+    const p = await fetch(MODEL_URL,{method:'HEAD',mode:'cors'});
+    if (!p.ok) { setProgress(100,'ERROR',`HTTP ${p.status}`); return null; }
+  } catch(e) { setProgress(100,'CORS ERROR',e.message); return null; }
   try {
-    setProgress(20, 'Downloading model…', 'best_float32.tflite (~45MB)');
+    setProgress(20,'Downloading model…','best_float32.tflite (~45MB)');
     const m = await tflite.loadTFLiteModel(MODEL_URL);
-    setProgress(80, 'Warming up…', 'Running warm-up pass');
-
-    const dummy   = tf.zeros([1, INPUT_SIZE, INPUT_SIZE, 3]);
-    const warmOut = m.predict(dummy);
-    const outT    = Array.isArray(warmOut) ? warmOut[0] : warmOut;
-    console.log('✅ Model loaded. Output shape:', outT.shape);
-    // Confirmed: [1, 11, 8400] — 4 box (normalised 0-1) + 7 class probs (NO sigmoid)
+    setProgress(80,'Warming up…','Running warm-up pass');
+    const dummy = tf.zeros([1,INPUT_SIZE,INPUT_SIZE,3]);
+    const wo = m.predict(dummy);
+    console.log('✅ Model loaded. Shape:', (Array.isArray(wo)?wo[0]:wo).shape);
     dummy.dispose();
-    if (Array.isArray(warmOut)) warmOut.forEach(t=>t.dispose()); else warmOut.dispose();
-
-    setProgress(100, 'Ready ✓', 'YOLOv8 loaded — 7 classes');
+    if (Array.isArray(wo)) wo.forEach(t=>t.dispose()); else wo.dispose();
+    setProgress(100,'Ready ✓','MeDenTec YOLOv8 — 7 classes');
     return m;
-  } catch(e) {
-    setProgress(100, 'LOAD ERROR', e.message);
-    console.error(e); return null;
-  }
+  } catch(e) { setProgress(100,'LOAD ERROR',e.message); console.error(e); return null; }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// PARSE YOLOv8 OUTPUT
-//
-// CONFIRMED by Python diagnostic:
-//   • cx, cy, w, h are NORMALISED 0–1  → multiply by canvas W/H directly
-//   • Class scores are already 0–1 probabilities → NO sigmoid
-//   • Output shape [1, 11, 8400]: row-major, each column = one anchor
-// ═══════════════════════════════════════════════════════════════
-function parseYOLOv8(outputTensor, W, H) {
-  const raw      = outputTensor.dataSync();
-  const numBoxes = 8400;
-  const dets     = [];
-
-  for (let i = 0; i < numBoxes; i++) {
-    // Class scores — already probabilities, NO sigmoid
-    let bestScore = 0, bestClass = 0;
-    for (let c = 0; c < NUM_CLASSES; c++) {
-      const score = raw[(4 + c) * numBoxes + i];
-      if (score > bestScore) { bestScore = score; bestClass = c; }
+// ─── PARSE — NO sigmoid, normalised boxes ───
+function parseOutput(outputTensor, W, H) {
+  const raw = outputTensor.dataSync();
+  const N   = 8400;
+  const dets = [];
+  for (let i = 0; i < N; i++) {
+    let bestScore=0, bestClass=0;
+    for (let c=0; c<NUM_CLASSES; c++) {
+      const s = raw[(4+c)*N + i];
+      if (s > bestScore) { bestScore=s; bestClass=c; }
     }
     if (bestScore < confidenceThreshold) continue;
-
-    // Box — normalised 0–1, multiply by display dimensions
-    const cx = raw[0 * numBoxes + i] * W;
-    const cy = raw[1 * numBoxes + i] * H;
-    const w  = raw[2 * numBoxes + i] * W;
-    const h  = raw[3 * numBoxes + i] * H;
-
-    dets.push({
-      x1: cx - w / 2, y1: cy - h / 2,
-      x2: cx + w / 2, y2: cy + h / 2,
-      score: bestScore, classId: bestClass,
-    });
+    const cx = raw[0*N+i]*W, cy = raw[1*N+i]*H;
+    const w  = raw[2*N+i]*W, h  = raw[3*N+i]*H;
+    dets.push({ x1:cx-w/2, y1:cy-h/2, x2:cx+w/2, y2:cy+h/2, score:bestScore, classId:bestClass });
   }
   return nms(dets).slice(0, MAX_DETS);
 }
 
-// ── NMS ──
-function iou(a, b) {
+// ─── NMS ───
+function iouBox(a, b) {
   const ix1=Math.max(a.x1,b.x1), iy1=Math.max(a.y1,b.y1);
   const ix2=Math.min(a.x2,b.x2), iy2=Math.min(a.y2,b.y2);
-  const inter = Math.max(0,ix2-ix1) * Math.max(0,iy2-iy1);
-  return inter / ((a.x2-a.x1)*(a.y2-a.y1) + (b.x2-b.x1)*(b.y2-b.y1) - inter + 1e-6);
+  const inter=Math.max(0,ix2-ix1)*Math.max(0,iy2-iy1);
+  return inter/((a.x2-a.x1)*(a.y2-a.y1)+(b.x2-b.x1)*(b.y2-b.y1)-inter+1e-6);
 }
 function nms(dets) {
-  dets.sort((a,b) => b.score - a.score);
+  dets.sort((a,b)=>b.score-a.score);
   const keep=[], sup=new Set();
   for (let i=0;i<dets.length;i++) {
-    if (sup.has(i)) continue;
-    keep.push(dets[i]);
-    for (let j=i+1;j<dets.length;j++) if (iou(dets[i],dets[j]) > IOU_THRESH) sup.add(j);
+    if (sup.has(i)) continue; keep.push(dets[i]);
+    for (let j=i+1;j<dets.length;j++) if (iouBox(dets[i],dets[j])>IOU_THRESH) sup.add(j);
   }
   return keep;
 }
 
-// ── DRAW ──
-function drawDetections(dets, W, H) {
-  ctx.clearRect(0, 0, W, H);
+// ─── DRAW ───
+function drawDetections(dets, canv, context, W, H) {
+  context.clearRect(0,0,W,H);
   dets.forEach(det => {
-    const cls = CLASSES[det.classId], color = cls.color;
+    const cls=CLASSES[det.classId], color=cls.color;
     const x=det.x1, y=det.y1, bw=det.x2-det.x1, bh=det.y2-det.y1;
 
-    ctx.save();
-    ctx.shadowBlur=12; ctx.shadowColor=color;
-    ctx.strokeStyle=color; ctx.lineWidth=2;
-    ctx.strokeRect(x, y, bw, bh);
-    ctx.restore();
+    context.save();
+    context.shadowBlur=10; context.shadowColor=color;
+    context.strokeStyle=color; context.lineWidth=1.5;
+    context.strokeRect(x,y,bw,bh);
+    context.restore();
 
-    ctx.fillStyle = color + '18';
-    ctx.fillRect(x, y, bw, bh);
+    context.fillStyle=color+'15';
+    context.fillRect(x,y,bw,bh);
 
-    // Corner accents
-    const cs=10;
-    ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3; ctx.shadowBlur=8; ctx.shadowColor=color;
+    // Corner ticks
+    const cs=8;
+    context.save(); context.strokeStyle=color; context.lineWidth=2.5;
+    context.shadowBlur=6; context.shadowColor=color;
     [[x,y,1,1],[x+bw,y,-1,1],[x,y+bh,1,-1],[x+bw,y+bh,-1,-1]].forEach(([px,py,dx,dy])=>{
-      ctx.beginPath(); ctx.moveTo(px+dx*cs,py); ctx.lineTo(px,py); ctx.lineTo(px,py+dy*cs); ctx.stroke();
+      context.beginPath(); context.moveTo(px+dx*cs,py); context.lineTo(px,py); context.lineTo(px,py+dy*cs); context.stroke();
     });
-    ctx.restore();
+    context.restore();
 
+    // Label
     const label = `${cls.name}  ${(det.score*100).toFixed(0)}%`;
-    ctx.font = 'bold 11px "Space Mono",monospace';
-    const tw = ctx.measureText(label).width, lh=18;
+    context.font = 'bold 10px "DM Mono",monospace';
+    const tw=context.measureText(label).width, lh=17;
     const lx=x, ly=y>lh+2?y-lh-2:y+bh+2;
-    ctx.fillStyle=color;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(lx,ly,tw+14,lh,3); else ctx.rect(lx,ly,tw+14,lh);
-    ctx.fill();
-    ctx.fillStyle='#000';
-    ctx.fillText(label, lx+7, ly+13);
+    context.fillStyle=color;
+    context.beginPath();
+    if (context.roundRect) context.roundRect(lx,ly,tw+12,lh,3); else context.rect(lx,ly,tw+12,lh);
+    context.fill();
+    context.fillStyle='#000';
+    context.fillText(label,lx+6,ly+12);
   });
 }
 
-// ── SIMULATION FALLBACK ──
-let simTick=0;
-function getSimDetections(W,H) {
-  simTick++;
-  const t=simTick*0.02, cx=W*0.5+Math.sin(t*0.7)*W*0.04, cy=H*0.55+Math.cos(t*0.5)*H*0.03;
-  return [
-    {classId:2,x1:cx-180,y1:cy-30,x2:cx-130,y2:cy+30,score:0.91},
-    {classId:3,x1:cx-130,y1:cy-28,x2:cx-88, y2:cy+28,score:0.88},
-    {classId:1,x1:cx-88, y1:cy-40,x2:cx-48, y2:cy+32,score:0.85},
-    {classId:0,x1:cx-48, y1:cy-35,x2:cx-4,  y2:cy+30,score:0.79},
-    {classId:0,x1:cx+4,  y1:cy-35,x2:cx+48, y2:cy+30,score:0.82},
-    {classId:4,x1:cx+48, y1:cy-40,x2:cx+88, y2:cy+32,score:0.86},
-    {classId:3,x1:cx+88, y1:cy-28,x2:cx+130,y2:cy+28,score:0.77},
-    {classId:2,x1:cx+130,y1:cy-30,x2:cx+180,y2:cy+30,score:0.93},
-  ].filter(d=>d.score>=confidenceThreshold);
-}
-
-// ── STATS ──
+// ─── STATS ───
 function updateStats(dets, ms) {
   document.getElementById('tooth-count').textContent = dets.length;
   document.getElementById('avg-conf').textContent = dets.length
     ? (dets.reduce((s,d)=>s+d.score,0)/dets.length*100).toFixed(0)+'%' : '—';
-  if (ms!==null) document.getElementById('inf-time').textContent = ms.toFixed(1)+'ms';
+  if (ms!==null) document.getElementById('inf-time').textContent=ms.toFixed(0)+'ms';
   frameCount++;
   const now=performance.now(), delta=now-lastFpsTime;
   if (delta>=1000) {
@@ -362,45 +676,168 @@ function updateStats(dets, ms) {
   }
 }
 
-// ── MAIN LOOP ──
+// ─── MAIN LOOP ───
 async function runLoop() {
-  if (!videoEl || videoEl.readyState < 2) { animId=requestAnimationFrame(runLoop); return; }
-
-  const W = videoEl.videoWidth  || 640;
-  const H = videoEl.videoHeight || 480;
-  if (overlayCanvas.width!==W || overlayCanvas.height!==H) {
-    overlayCanvas.width=W; overlayCanvas.height=H;
-  }
+  if (!videoEl || videoEl.readyState<2) { animId=requestAnimationFrame(runLoop); return; }
+  const W=videoEl.videoWidth||640, H=videoEl.videoHeight||480;
+  if (overlayCanvas.width!==W||overlayCanvas.height!==H) { overlayCanvas.width=W; overlayCanvas.height=H; }
 
   let dets=[], ms=null;
-
   if (model) {
     try {
-      const t0  = performance.now();
+      const t0=performance.now();
+      const inp=tf.tidy(()=>tf.browser.fromPixels(videoEl).resizeBilinear([INPUT_SIZE,INPUT_SIZE]).div(255.0).expandDims(0));
+      const out=model.predict(inp);
+      ms=performance.now()-t0;
+      const outT=Array.isArray(out)?out[0]:out;
+      dets=parseOutput(outT, W, H);
+      inp.dispose();
+      if (Array.isArray(out)) out.forEach(t=>t.dispose()); else out.dispose();
+    } catch(e) { console.error('Inference:',e); }
+  } else if (simMode) {
+    dets = getSimDets(W, H);
+  }
+
+  // Apply temporal smoothing to reduce box jitter
+  const smoothed = smoothDetections(dets);
+  lastDets = smoothed;
+
+  drawDetections(smoothed, overlayCanvas, ctx, W, H);
+  updateStats(smoothed, ms);
+  updateChips(smoothed);
+  animId=requestAnimationFrame(runLoop);
+}
+
+// ─── CAPTURE FRAME ───
+// Grabs the raw video frame (full resolution), runs inference on it,
+// then draws results on the capture canvas at full quality.
+async function captureFrame() {
+  if (!videoEl || videoEl.readyState < 2) { showToast('Camera not ready'); return; }
+
+  // Flash
+  const flash = document.getElementById('flash');
+  flash.classList.add('on');
+  setTimeout(() => flash.classList.remove('on'), 150);
+
+  const VW = videoEl.videoWidth, VH = videoEl.videoHeight;
+  if (!VW || !VH) { showToast('No video frame'); return; }
+
+  // Draw raw video frame to a hidden canvas
+  const rawCanvas = document.createElement('canvas');
+  rawCanvas.width = VW; rawCanvas.height = VH;
+  const rawCtx = rawCanvas.getContext('2d');
+  rawCtx.drawImage(videoEl, 0, 0, VW, VH);
+
+  // Run inference on the raw frame (no resize artifacts from display)
+  let dets = [];
+  if (model) {
+    showToast('Analysing capture…', 1500);
+    try {
       const inp = tf.tidy(() =>
-        tf.browser.fromPixels(videoEl)
+        tf.browser.fromPixels(rawCanvas)
           .resizeBilinear([INPUT_SIZE, INPUT_SIZE])
           .div(255.0)
           .expandDims(0)
       );
-      const out    = model.predict(inp);
-      ms           = performance.now() - t0;
-      const outT   = Array.isArray(out) ? out[0] : out;
-      dets         = parseYOLOv8(outT, W, H);
+      const out  = model.predict(inp);
+      const outT = Array.isArray(out) ? out[0] : out;
+      dets = parseOutput(outT, VW, VH);  // boxes scaled to full VW×VH
       inp.dispose();
       if (Array.isArray(out)) out.forEach(t=>t.dispose()); else out.dispose();
-    } catch(e) { console.error('Inference error:', e); }
-  } else if (simMode) {
-    dets = getSimDetections(W, H);
+    } catch(e) { console.error('Capture inference:', e); }
+  } else {
+    dets = lastDets; // fallback: use last live dets
   }
 
-  drawDetections(dets, W, H);
-  updateStats(dets, ms);
-  updateChips(dets);
-  animId = requestAnimationFrame(runLoop);
+  // Draw detections onto the raw canvas
+  drawDetections(dets, rawCanvas, rawCtx, VW, VH);
+
+  // Add MeDenTec watermark
+  rawCtx.save();
+  rawCtx.font = `bold ${Math.round(VW*0.025)}px Outfit,sans-serif`;
+  rawCtx.fillStyle = 'rgba(255,255,255,0.7)';
+  rawCtx.fillText('MeDenTec AR v1.0', 12, VH - 12);
+  rawCtx.restore();
+
+  // Store for saving
+  capturedImageData = rawCanvas;
+
+  // Show in modal
+  const capCanvas = document.getElementById('capture-canvas');
+  capCanvas.width  = VW;
+  capCanvas.height = VH;
+  capCanvas.getContext('2d').drawImage(rawCanvas, 0, 0);
+
+  // Populate modal stats
+  document.getElementById('m-count').textContent = dets.length;
+  document.getElementById('m-conf').textContent  = dets.length
+    ? (dets.reduce((s,d)=>s+d.score,0)/dets.length*100).toFixed(0)+'%' : '—';
+
+  const topCls = dets.length
+    ? CLASSES[dets.sort((a,b)=>b.score-a.score)[0].classId].name
+    : '—';
+  document.getElementById('m-top').textContent = topCls;
+
+  // Detection list
+  const list = document.getElementById('modal-det-list');
+  list.innerHTML = '';
+  if (dets.length === 0) {
+    list.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);padding:12px 0">No detections above threshold</div>';
+  } else {
+    [...dets].sort((a,b)=>b.score-a.score).forEach(d => {
+      const cls = CLASSES[d.classId];
+      const row = document.createElement('div');
+      row.className = 'det-row';
+      row.innerHTML = `
+        <div class="det-row-left">
+          <div class="det-dot" style="background:${cls.color}"></div>
+          <div class="det-name">${cls.name}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+          <div class="det-conf">${(d.score*100).toFixed(1)}%</div>
+          <div class="det-box-info">${Math.round(d.x1)},${Math.round(d.y1)} → ${Math.round(d.x2)},${Math.round(d.y2)}</div>
+        </div>`;
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('save-success').classList.remove('show');
+  document.getElementById('capture-modal').classList.add('active');
 }
 
-// ── CAMERA ──
+function closeModal() {
+  document.getElementById('capture-modal').classList.remove('active');
+  capturedImageData = null;
+}
+
+function saveCapture() {
+  if (!capturedImageData) { showToast('Nothing to save'); return; }
+  const link = document.createElement('a');
+  const ts   = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  link.download = `medentec-ar-${ts}.png`;
+  link.href = capturedImageData.toDataURL('image/png');
+  link.click();
+  document.getElementById('save-success').classList.add('show');
+}
+
+// ─── SIM DETS (fallback) ───
+let simTick=0;
+function getSimDets(W,H) {
+  simTick++;
+  const t=simTick*0.02, cx=W*0.5+Math.sin(t*0.7)*W*0.04, cy=H*0.55+Math.cos(t*0.5)*H*0.03;
+  return [
+    {classId:2,x1:cx-160,y1:cy-28,x2:cx-110,y2:cy+28,score:0.91},
+    {classId:3,x1:cx-110,y1:cy-26,x2:cx-74, y2:cy+26,score:0.88},
+    {classId:1,x1:cx-74, y1:cy-36,x2:cx-38, y2:cy+30,score:0.85},
+    {classId:0,x1:cx-38, y1:cy-32,x2:cx-4,  y2:cy+28,score:0.79},
+    {classId:0,x1:cx+4,  y1:cy-32,x2:cx+38, y2:cy+28,score:0.82},
+    {classId:4,x1:cx+38, y1:cy-36,x2:cx+74, y2:cy+30,score:0.86},
+    {classId:3,x1:cx+74, y1:cy-26,x2:cx+110,y2:cy+26,score:0.77},
+    {classId:2,x1:cx+110,y1:cy-28,x2:cx+160,y2:cy+28,score:0.93},
+  ].filter(d=>d.score>=confidenceThreshold);
+}
+
+// ─── CAMERA ───
 async function startCamera(facingMode='user') {
   if (stream) stream.getTracks().forEach(t=>t.stop());
   try {
@@ -408,33 +845,33 @@ async function startCamera(facingMode='user') {
       video:{facingMode, width:{ideal:1280}, height:{ideal:720}}, audio:false
     });
     videoEl.srcObject = stream;
-    videoEl.style.transform = facingMode==='user' ? 'scaleX(-1)' : 'none';
-    overlayCanvas.style.transform = 'none'; // never mirror canvas
+    videoEl.style.transform = facingMode==='user'?'scaleX(-1)':'none';
+    overlayCanvas.style.transform = 'none';
     return true;
   } catch(e) { showToast('Camera error: '+e.message); return false; }
 }
 function toggleCamera() { useFrontCamera=!useFrontCamera; startCamera(useFrontCamera?'user':'environment'); }
 function updateThreshold(val) {
-  confidenceThreshold = val/100;
-  document.getElementById('threshold-val').textContent = confidenceThreshold.toFixed(2);
+  confidenceThreshold=val/100;
+  document.getElementById('threshold-val').textContent=confidenceThreshold.toFixed(2);
 }
 
-// ── START ──
+// ─── START AR ───
 async function startAR() {
   document.getElementById('splash').classList.add('hidden');
   setTimeout(()=>document.getElementById('splash').style.display='none', 700);
   document.getElementById('app').classList.add('active');
-  videoEl=document.getElementById('video');
-  overlayCanvas=document.getElementById('overlay');
-  ctx=overlayCanvas.getContext('2d');
+  videoEl       = document.getElementById('video');
+  overlayCanvas = document.getElementById('overlay');
+  ctx           = overlayCanvas.getContext('2d');
   await startCamera('user');
-  if (!model) { simMode=true; showToast('Simulation mode — model unavailable',5000); }
+  if (!model) { simMode=true; showToast('Simulation mode — model unavailable',4000); }
   runLoop();
 }
 
-// ── INIT ──
+// ─── INIT ───
 (async()=>{
-  buildDetectionGrid();
+  buildChips();
   setProgress(5,'Loading TF.js…','Initialising TensorFlow.js');
   await tf.ready();
   setProgress(15,'TF.js ready','Backend: '+tf.getBackend());
